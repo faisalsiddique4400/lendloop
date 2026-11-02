@@ -54,7 +54,7 @@ Start the app (`npx convex dev`, `npm run dev`, `docker compose up -d n8n`). Use
 | 13 | As A, open Inbox | "A neighbor wants to borrow your …" from n8n, nav shows the unread count |
 | 14 | As A, Approve | Badge "Approved", "Due back in N days"; B's Inbox shows the approval |
 | 15 | As B, Request the same tool for overlapping dates | "Those days are taken. Try others." and Send disabled |
-| 16 | As A, try to Delete the lent tool | Delete is disabled, "You can't delete a tool while someone has it." |
+| 16 | As A, try to Delete the lent or booked tool | While B has it, Delete is disabled. For a future booking, the confirm appears and then the toast "You can't delete a tool that is lent out or booked." |
 | 17 | In the Convex dashboard (`npx convex dashboard`), set the loan's `endDate` to two days ago | Row shows "2 days late", Overdue badge, "Send reminder" |
 | 18 | As A, click Send reminder | Button changes to "Reminder sent"; B gets one reminder in the Inbox |
 | 19 | In n8n, run "LendLoop overdue reminders" twice | B has exactly one overdue reminder for today |
