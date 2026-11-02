@@ -7,11 +7,10 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ListSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Tabs } from "@/components/ui/Tabs";
-import { useToast } from "@/components/ui/Toast";
+import { useToastAction } from "@/components/ui/Toast";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { effectiveStatus, formatRange, localToday } from "@/convex/lib/dates";
-import { errorText } from "@/lib/errors";
+import { effectiveStatus, formatRange, todayIso } from "@/convex/lib/dates";
 
 export default function AdminPage() {
   const me = useQuery(api.users.me);
@@ -23,9 +22,9 @@ export default function AdminPage() {
   const markRead = useMutation(api.notifications.markRead);
   const removeTool = useMutation(api.tools.remove);
   const setTrusted = useMutation(api.users.setTrusted);
-  const toast = useToast();
+  const run = useToastAction();
   const [tab, setTab] = useState<"loans" | "listings" | "people">("loans");
-  const [today] = useState(localToday);
+  const [today] = useState(todayIso);
 
   if (me === undefined) return <ListSkeleton />;
   if (!isAdmin) {
@@ -38,23 +37,9 @@ export default function AdminPage() {
 
   const alert = notes?.find((note) => note.kind === "automation_failed" && !note.read);
 
-  async function attempt(action: () => Promise<unknown>, done?: string) {
-    try {
-      await action();
-      if (done) toast(done);
-    } catch (err) {
-      toast(errorText(err));
-    }
-  }
-
   async function remove(toolId: Id<"tools">, name: string) {
     if (!window.confirm(`Remove the ${name.toLowerCase()} for everyone? This can't be undone.`)) return;
-    try {
-      await removeTool({ toolId });
-      toast(`${name} removed.`);
-    } catch (err) {
-      toast(errorText(err));
-    }
+    await run(() => removeTool({ toolId }), `${name} removed.`);
   }
 
   return (
@@ -66,7 +51,7 @@ export default function AdminPage() {
       {alert && (
         <div className="notice notice-danger" role="alert">
           <span>{alert.message}</span>
-          <Button variant="quiet" size="sm" onClick={() => attempt(() => markRead({ id: alert._id }))}>
+          <Button variant="quiet" size="sm" onClick={() => run(() => markRead({ id: alert._id }))}>
             Dismiss
           </Button>
         </div>
@@ -132,7 +117,7 @@ export default function AdminPage() {
                     <td className="t-name">{tool.name}</td>
                     <td>{tool.ownerName}</td>
                     <td>{tool.category}</td>
-                    <td style={{ textAlign: "right" }}>
+                    <td className="cell-end">
                       <Button variant="danger" size="sm" onClick={() => remove(tool._id, tool.name)}>
                         Remove
                       </Button>
@@ -166,7 +151,7 @@ export default function AdminPage() {
                           type="checkbox"
                           checked={person.trusted}
                           onChange={(e) =>
-                            attempt(
+                            run(
                               () => setTrusted({ userId: person._id, trusted: e.target.checked }),
                               `${person.name} is ${e.target.checked ? "now" : "no longer"} a Trusted Lender.`,
                             )

@@ -5,10 +5,9 @@ import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { api } from "@/convex/_generated/api";
 import { effectiveStatus, formatRange, timingLabel } from "@/convex/lib/dates";
-import { errorText } from "@/lib/errors";
 import { Button } from "./ui/Button";
 import { StatusBadge } from "./ui/StatusBadge";
-import { useToast } from "./ui/Toast";
+import { useToastAction } from "./ui/Toast";
 
 export type NamedLoan = FunctionReturnType<typeof api.loans.incoming>[number];
 
@@ -18,7 +17,7 @@ export function LoanRow({ loan, side, today, fresh }: Props) {
   const decide = useMutation(api.loans.decide);
   const markReturned = useMutation(api.loans.markReturned);
   const remind = useMutation(api.loans.remind);
-  const toast = useToast();
+  const act = useToastAction();
   const [busy, setBusy] = useState(false);
   const [reminded, setReminded] = useState(false);
 
@@ -28,14 +27,8 @@ export function LoanRow({ loan, side, today, fresh }: Props) {
 
   async function run(action: () => Promise<unknown>, done: string) {
     setBusy(true);
-    try {
-      await action();
-      toast(done);
-    } catch (err) {
-      toast(errorText(err));
-    } finally {
-      setBusy(false);
-    }
+    await act(action, done);
+    setBusy(false);
   }
 
   return (

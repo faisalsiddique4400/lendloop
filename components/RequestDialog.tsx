@@ -20,7 +20,9 @@ export function RequestDialog({ tool, onClose }: { tool: ListedTool; onClose: ()
   const request = useMutation(api.loans.request);
   const toast = useToast();
 
-  useEffect(() => dialog.current?.showModal(), []);
+  useEffect(() => {
+    if (!dialog.current?.open) dialog.current?.showModal();
+  }, []);
 
   const pick = (start: string, end: string) => {
     setStartDate(start);

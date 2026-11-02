@@ -17,8 +17,14 @@ const delay = (step: number) => ({ "--d": step }) as CSSProperties;
 
 export default async function Home() {
   const [tools, recent] = await Promise.all([
-    fetchQuery(api.tools.listPublic).catch(() => []),
-    fetchQuery(api.loans.recent).catch(() => []),
+    fetchQuery(api.tools.listPublic).catch((error) => {
+      console.error(error);
+      return [];
+    }),
+    fetchQuery(api.loans.recent).catch((error) => {
+      console.error(error);
+      return [];
+    }),
   ]);
 
   return (

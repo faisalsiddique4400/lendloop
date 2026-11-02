@@ -6,24 +6,18 @@ import { ToolForm, type MyTool } from "@/components/ToolForm";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ListSkeleton } from "@/components/ui/Skeleton";
-import { useToast } from "@/components/ui/Toast";
+import { useToastAction } from "@/components/ui/Toast";
 import { api } from "@/convex/_generated/api";
-import { errorText } from "@/lib/errors";
 
 export default function ListingsPage() {
   const tools = useQuery(api.tools.mine);
   const remove = useMutation(api.tools.remove);
-  const toast = useToast();
+  const run = useToastAction();
   const [editing, setEditing] = useState<MyTool | null>(null);
 
   async function del(tool: MyTool) {
     if (!window.confirm(`Delete the ${tool.name.toLowerCase()}? This can't be undone.`)) return;
-    try {
-      await remove({ toolId: tool._id });
-      toast(`${tool.name} is gone from the list.`);
-    } catch (err) {
-      toast(errorText(err));
-    }
+    await run(() => remove({ toolId: tool._id }), `${tool.name} is gone from the list.`);
   }
 
   return (
@@ -65,7 +59,7 @@ export default function ListingsPage() {
               <span className="muted">Add your first tool with the form.</span>
             </EmptyState>
           )}
-          <p className="help" style={{ paddingTop: 12 }}>
+          <p className="help help-gap">
             You can&apos;t delete a tool while someone has it.
           </p>
         </div>

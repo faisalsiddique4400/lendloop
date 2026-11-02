@@ -8,14 +8,14 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ListSkeleton } from "@/components/ui/Skeleton";
 import { Tabs } from "@/components/ui/Tabs";
 import { api } from "@/convex/_generated/api";
-import { effectiveStatus, localToday } from "@/convex/lib/dates";
+import { effectiveStatus, todayIso } from "@/convex/lib/dates";
 
 export default function RequestsPage() {
   const incoming = useQuery(api.loans.incoming);
   const mine = useQuery(api.loans.mine);
   const [tab, setTab] = useState<"in" | "mine">("in");
   const [openedAt] = useState(() => Date.now());
-  const [today] = useState(localToday);
+  const [today] = useState(todayIso);
 
   const rows = tab === "in" ? incoming : mine;
   const waiting = incoming?.filter((loan) => loan.status === "pending").length ?? 0;
@@ -49,8 +49,8 @@ export default function RequestsPage() {
           </div>
         ) : (
           <EmptyState title={tab === "in" ? "No requests yet" : "You haven't asked for anything yet"}>
-            <Link href="/tools" className="btn btn-sm">
-              Browse tools
+            <Link href={tab === "in" ? "/listings" : "/tools"} className="btn btn-sm">
+              {tab === "in" ? "List a tool" : "Browse tools"}
             </Link>
           </EmptyState>
         )}

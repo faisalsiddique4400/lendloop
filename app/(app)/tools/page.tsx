@@ -31,7 +31,7 @@ export default function ToolsPage() {
   }, []);
 
   const shown = tools ? filterTools(tools, { category, query, onlyFree }) : [];
-  const neighbors = new Set(tools?.map((tool) => tool.ownerName)).size;
+  const neighbors = new Set(tools?.filter((tool) => !tool.mine).map((tool) => tool.ownerName)).size;
 
   return (
     <>
@@ -77,7 +77,13 @@ export default function ToolsPage() {
           ))}
         </div>
       ) : (
-        <EmptyState title={query.trim() ? `Nothing matches "${query.trim()}"` : "No tools here yet"}>
+        <EmptyState title={
+            query.trim()
+              ? `Nothing matches "${query.trim()}"`
+              : tools.length > 0
+                ? "Nothing matches these filters"
+                : "No tools here yet"
+          }>
           <span className="muted">Got one in the shed? List it and your neighbors can borrow it.</span>
         </EmptyState>
       )}

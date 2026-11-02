@@ -6,21 +6,20 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ListSkeleton } from "@/components/ui/Skeleton";
-import { useToast } from "@/components/ui/Toast";
+import { useToastAction } from "@/components/ui/Toast";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { errorText } from "@/lib/errors";
 
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 
 export default function InboxPage() {
   const notes = useQuery(api.notifications.mine);
   const markRead = useMutation(api.notifications.markRead);
-  const toast = useToast();
+  const run = useToastAction();
   const [openedAt] = useState(() => Date.now());
   const [now] = useState(() => new Date());
 
-  const read = (id?: Id<"notifications">) => markRead(id ? { id } : {}).catch((err) => toast(errorText(err)));
+  const read = (id?: Id<"notifications">) => run(() => markRead(id ? { id } : {}));
 
   if (notes === undefined) return <ListSkeleton />;
   const unread = notes.filter((note) => !note.read).length;
@@ -30,7 +29,7 @@ export default function InboxPage() {
   ].filter((group) => group.notes.length);
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div className="narrow">
       <div className="page-head">
         <div>
           <h1>Inbox</h1>
