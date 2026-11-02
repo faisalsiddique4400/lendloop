@@ -44,7 +44,12 @@ test("send retries three times, then tells admins", async () => {
   await t.action(internal.n8n.send, event);
   await t.finishAllScheduledFunctions(vi.runAllTimers);
   expect(fetch).toHaveBeenCalledTimes(4);
-  expect(await ada.as.query(api.notifications.mine, {})).toMatchObject([{ kind: "automation_failed" }]);
+  expect(await ada.as.query(api.notifications.mine, {})).toMatchObject([
+    {
+      kind: "automation_failed",
+      message: "Couldn't send the notice for the cordless drill after 4 tries. Check that n8n is running.",
+    },
+  ]);
 });
 
 test("a missing webhook URL alerts admins instead of throwing", async () => {

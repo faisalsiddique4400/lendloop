@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ToolForm, type MyTool } from "@/components/ToolForm";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ListHeader } from "@/components/ui/ListHeader";
 import { ListSkeleton } from "@/components/ui/Skeleton";
 import { useToastAction } from "@/components/ui/Toast";
 import { api } from "@/convex/_generated/api";
@@ -34,6 +35,7 @@ export default function ListingsPage() {
             <ListSkeleton rows={3} />
           ) : tools.length ? (
             <div className="list stagger">
+              <ListHeader variant="mine" columns={["Tool", "Status", "Actions"]} />
               {tools.map((tool) => (
                 <div key={tool._id} className="row row-mine">
                   <div>

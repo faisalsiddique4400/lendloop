@@ -4,6 +4,8 @@ import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { FilterChips } from "@/components/ui/FilterChips";
+import { SearchBox } from "@/components/ui/SearchBox";
 import { ListSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Tabs } from "@/components/ui/Tabs";
@@ -11,6 +13,13 @@ import { useToastAction } from "@/components/ui/Toast";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { effectiveStatus, formatRange, todayIso } from "@/convex/lib/dates";
+import { CATEGORIES } from "@/convex/lib/validators";
+import { countGroups, filterLoans, LOAN_GROUPS, type LoanGroup } from "@/lib/filterLoans";
+
+const matches = (query: string, ...texts: string[]) => {
+  const q = query.trim().toLowerCase();
+  return !q || texts.some((text) => text.toLowerCase().includes(q));
+};
 
 export default function AdminPage() {
   const me = useQuery(api.users.me);
@@ -25,6 +34,10 @@ export default function AdminPage() {
   const run = useToastAction();
   const [tab, setTab] = useState<"loans" | "listings" | "people">("loans");
   const [today] = useState(todayIso);
+  const [query, setQuery] = useState("");
+  const [group, setGroup] = useState<LoanGroup>("all");
+  const [category, setCategory] = useState("All");
+  const [onlyTrusted, setOnlyTrusted] = useState(false);
 
   if (me === undefined) return <ListSkeleton />;
   if (!isAdmin) {
@@ -36,6 +49,24 @@ export default function AdminPage() {
   }
 
   const alert = notes?.find((note) => note.kind === "automation_failed" && !note.read);
+
+  const clear = () => {
+    setQuery("");
+    setGroup("all");
+    setCategory("All");
+    setOnlyTrusted(false);
+  };
+  const noMatch = (
+    <EmptyState title="Nothing matches these filters">
+      <Button size="sm" onClick={clear}>
+        Clear filters
+      </Button>
+    </EmptyState>
+  );
+  const shownLoans = loans && filterLoans(loans, { group, query }, today);
+  const shownTools = tools?.filter((tool) => (category === "All" || tool.category === category) && matches(query, tool.name, tool.ownerName));
+  const shownPeople = people?.filter((person) => (!onlyTrusted || person.trusted) && matches(query, person.name));
+  const counts = loans && countGroups(loans, today);
 
   async function remove(toolId: Id<"tools">, name: string) {
     if (!window.confirm(`Remove the ${name.toLowerCase()} for everyone? This can't be undone.`)) return;
@@ -67,9 +98,49 @@ export default function AdminPage() {
         onChange={setTab}
       />
 
+      <div className="toolbar">
+        <SearchBox
+          id="admin-q"
+          label={tab === "loans" ? "Search tool or neighbor" : tab === "listings" ? "Search tool or owner" : "Search neighbors"}
+          value={query}
+          onChange={setQuery}
+        />
+        {tab === "listings" && (
+          <>
+            <label className="sr" htmlFor="admin-cat">
+              Category
+            </label>
+            <select id="admin-cat" className="select" value={category} onChange={(e) => setCategory(e.target.value)}>
+              {["All", ...CATEGORIES].map((name) => (
+                <option key={name} value={name}>
+                  {name === "All" ? "All categories" : name}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+        {tab === "people" && (
+          <label className="switch">
+            <input type="checkbox" checked={onlyTrusted} onChange={(e) => setOnlyTrusted(e.target.checked)} /> Trusted only
+          </label>
+        )}
+      </div>
+      {tab === "loans" && counts && (
+        <FilterChips
+          label="Filter by status"
+          options={LOAN_GROUPS.map(([id, label]) => ({ id, label, count: counts[id] }))}
+          value={group}
+          onChange={setGroup}
+        />
+      )}
+
       <div className="scroll" role="tabpanel">
         {tab === "loans" &&
-          (loans ? (
+          (shownLoans === undefined ? (
+            <ListSkeleton />
+          ) : shownLoans.length === 0 ? (
+            noMatch
+          ) : (
             <table className="data">
               <thead>
                 <tr>
@@ -81,7 +152,7 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {loans.map((loan) => (
+                {shownLoans.map((loan) => (
                   <tr key={loan._id}>
                     <td className="t-name">{loan.toolName}</td>
                     <td>{loan.ownerName}</td>
@@ -94,12 +165,14 @@ export default function AdminPage() {
                 ))}
               </tbody>
             </table>
-          ) : (
-            <ListSkeleton />
           ))}
 
         {tab === "listings" &&
-          (tools ? (
+          (shownTools === undefined ? (
+            <ListSkeleton />
+          ) : shownTools.length === 0 ? (
+            noMatch
+          ) : (
             <table className="data">
               <thead>
                 <tr>
@@ -112,7 +185,7 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {tools.map((tool) => (
+                {shownTools.map((tool) => (
                   <tr key={tool._id}>
                     <td className="t-name">{tool.name}</td>
                     <td>{tool.ownerName}</td>
@@ -126,12 +199,14 @@ export default function AdminPage() {
                 ))}
               </tbody>
             </table>
-          ) : (
-            <ListSkeleton />
           ))}
 
         {tab === "people" &&
-          (people ? (
+          (shownPeople === undefined ? (
+            <ListSkeleton />
+          ) : shownPeople.length === 0 ? (
+            noMatch
+          ) : (
             <table className="data">
               <thead>
                 <tr>
@@ -141,7 +216,7 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {people.map((person) => (
+                {shownPeople.map((person) => (
                   <tr key={person._id}>
                     <td className="t-name">{person.name}</td>
                     <td>{person.tools}</td>
@@ -164,8 +239,6 @@ export default function AdminPage() {
                 ))}
               </tbody>
             </table>
-          ) : (
-            <ListSkeleton />
           ))}
       </div>
     </>

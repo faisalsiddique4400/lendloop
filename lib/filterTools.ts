@@ -9,3 +9,11 @@ export function filterTools<T extends { name: string; category: string; availabl
       (!query || tool.name.toLowerCase().includes(query)),
   );
 }
+
+export type ToolSort = "newest" | "name" | "available";
+
+export function sortTools<T extends { name: string; available: boolean }>(tools: T[], sort: ToolSort) {
+  if (sort === "name") return tools.toSorted((a, b) => a.name.localeCompare(b.name));
+  if (sort === "available") return tools.toSorted((a, b) => Number(b.available) - Number(a.available));
+  return tools;
+}

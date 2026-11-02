@@ -56,6 +56,11 @@ h1,h2,h3,p{margin:0}
 .chip{height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink);font:500 13px var(--font-sans),system-ui,sans-serif;cursor:pointer}
 .chip:hover{border-color:var(--muted)}
 .chip.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.chip-count{margin-left:8px;font:500 12px var(--font-mono),monospace;opacity:.7}
+.row-head{padding:10px 0;font-size:12px;font-weight:500;color:var(--muted);position:sticky;top:0;z-index:1;background:var(--bg)}
+.row.row-head:hover{background:var(--bg)}
+.stack{display:flex;flex-direction:column;gap:16px}
+.select{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:400 14px var(--font-sans),system-ui,sans-serif}
 
 .tabs{display:flex;gap:24px;border-bottom:1px solid var(--line)}
 .tab{height:42px;padding:0;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;color:var(--muted);font:500 14px var(--font-sans),system-ui,sans-serif;cursor:pointer}
@@ -121,6 +126,7 @@ h1,h2,h3,p{margin:0}
   .nav-in{gap:12px}
   .me-name{display:none}
   .row,.row-loan,.row-mine{grid-template-columns:1fr;gap:8px}
+  .row-head{display:none}
   .actions{justify-content:flex-start}
   .two{grid-template-columns:1fr}
 }

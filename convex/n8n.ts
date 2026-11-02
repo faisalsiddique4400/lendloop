@@ -36,9 +36,10 @@ export const send = internalAction({
         await ctx.scheduler.runAfter(BACKOFF_MS[attempt], internal.n8n.send, { ...event, attempt: attempt + 1 });
         return;
       }
+      console.error(`n8n.send gave up on ${event.eventId}`, error);
       await ctx.runMutation(internal.notifications.alertAdmins, {
         eventId: `failed:${event.eventId}`,
-        message: `Couldn't reach n8n for the ${event.toolName.toLowerCase()} after ${BACKOFF_MS.length + 1} tries: ${String(error)}`,
+        message: `Couldn't send the notice for the ${event.toolName.toLowerCase()} after ${BACKOFF_MS.length + 1} tries. Check that n8n is running.`,
       });
     } finally {
       clearTimeout(timer);
