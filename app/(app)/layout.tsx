@@ -37,10 +37,20 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 function SignedIn({ children }: { children: ReactNode }) {
   const store = useMutation(api.users.store);
   const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
-    store({}).then(() => setReady(true));
+    store({})
+      .then(() => setReady(true))
+      .catch(() => setFailed(true));
   }, [store]);
 
+  if (failed) {
+    return (
+      <main className="wrap page">
+        <EmptyState title="We couldn't load your account. Reload to try again." />
+      </main>
+    );
+  }
   if (!ready) {
     return (
       <main className="wrap page">

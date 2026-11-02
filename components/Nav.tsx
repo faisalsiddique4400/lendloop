@@ -31,8 +31,9 @@ export function Nav() {
             <Link key={href} href={href} className={path === href ? "nav-link on" : "nav-link"} aria-current={path === href ? "page" : undefined}>
               {label}
               {href === "/inbox" && unread > 0 && (
-                <span className="count" aria-label={`${unread} unread`}>
+                <span className="count">
                   {unread}
+                  <span className="sr"> unread</span>
                 </span>
               )}
             </Link>
