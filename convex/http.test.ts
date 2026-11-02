@@ -49,3 +49,13 @@ test("overdue lists late loans and alert tells admins", async () => {
     { kind: "automation_failed", message: "Overdue reminders failed" },
   ]);
 });
+
+test("missing fields are a 400, not the string undefined", async () => {
+  const t = setup();
+  const ali = await signIn(t, "Ali");
+  const note = { ts: Date.now(), eventId: "e1", recipientId: ali.id, kind: "request_created" };
+  expect((await post(t, "/n8n/notify", note)).status).toBe(400);
+  expect((await post(t, "/n8n/overdue", { ts: Date.now() })).status).toBe(400);
+  expect((await post(t, "/n8n/overdue", { ts: Date.now(), runDate: "tomorrow" })).status).toBe(400);
+  expect(await ali.as.query(api.notifications.mine, {})).toEqual([]);
+});

@@ -53,6 +53,16 @@ test("approve refuses dates another approved loan holds", async () => {
   await ali.as.mutation(api.loans.decide, { loanId: second, approve: false });
 });
 
+test("approve refuses a request whose dates have passed, decline still works", async () => {
+  const t = setup();
+  const { ali, sara, toolId } = await seed(t);
+  const stale = await addLoan(t, toolId, sara.id, { startDate: days(-4), endDate: days(-2), status: "pending" });
+  await expect(ali.as.mutation(api.loans.decide, { loanId: stale, approve: true })).rejects.toThrow(
+    "This request's dates have passed.",
+  );
+  await ali.as.mutation(api.loans.decide, { loanId: stale, approve: false });
+});
+
 test("remind works once a day on late loans, then markReturned closes it", async () => {
   const t = setup();
   const { ali, sara, toolId } = await seed(t);

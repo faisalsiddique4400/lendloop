@@ -47,7 +47,7 @@ export const list = query({
   handler: async (ctx) => {
     const user = await requireUser(ctx);
     const today = todayIso();
-    // ponytail: one neighborhood is small, so no paging. Switch to .paginate() past a few hundred tools.
+    // One neighborhood is small, so no paging. Switch to .paginate() past a few hundred tools.
     const tools = await ctx.db.query("tools").order("desc").collect();
     return await Promise.all(
       tools.map(async (tool) => {

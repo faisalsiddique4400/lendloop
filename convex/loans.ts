@@ -65,6 +65,7 @@ export const decide = mutation({
     const { loan, tool } = await loadLoan(ctx, loanId);
     requireOwner(user, tool);
     if (loan.status !== "pending") throw new ConvexError("This request was already answered.");
+    if (approve && loan.endDate < todayIso()) throw new ConvexError("This request's dates have passed.");
     if (approve && clashes(await approvedLoans(ctx, tool._id), loan, loan._id)) {
       throw new ConvexError("This tool is booked for those dates.");
     }

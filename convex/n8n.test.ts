@@ -46,3 +46,18 @@ test("send retries three times, then tells admins", async () => {
   expect(fetch).toHaveBeenCalledTimes(4);
   expect(await ada.as.query(api.notifications.mine, {})).toMatchObject([{ kind: "automation_failed" }]);
 });
+
+test("a missing webhook URL alerts admins instead of throwing", async () => {
+  const t = setup();
+  const ada = await signIn(t, "Ada", "admin");
+  const { event } = await seed(t);
+  vi.stubEnv("N8N_WEBHOOK_URL", "");
+  await t.action(internal.n8n.send, event);
+  expect(fetch).not.toHaveBeenCalled();
+  expect(await ada.as.query(api.notifications.mine, {})).toMatchObject([
+    {
+      kind: "automation_failed",
+      message: "LendLoop can't reach n8n: set N8N_WEBHOOK_URL and LENDLOOP_HMAC_SECRET on the Convex deployment.",
+    },
+  ]);
+});

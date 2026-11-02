@@ -12,7 +12,13 @@ export const send = internalAction({
   handler: async (ctx, { attempt, ...event }) => {
     const url = process.env.N8N_WEBHOOK_URL;
     const secret = process.env.LENDLOOP_HMAC_SECRET;
-    if (!url || !secret) throw new Error("Set N8N_WEBHOOK_URL and LENDLOOP_HMAC_SECRET on the Convex deployment");
+    if (!url || !secret) {
+      await ctx.runMutation(internal.notifications.alertAdmins, {
+        eventId: `config:${event.eventId}`,
+        message: "LendLoop can't reach n8n: set N8N_WEBHOOK_URL and LENDLOOP_HMAC_SECRET on the Convex deployment.",
+      });
+      return;
+    }
 
     const body = JSON.stringify({ ts: Date.now(), ...event });
     const abort = new AbortController();

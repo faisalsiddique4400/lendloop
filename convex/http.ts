@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { httpAction, type ActionCtx } from "./_generated/server";
+import { isIsoDate } from "./lib/dates";
 import { verify } from "./lib/hmac";
 import type { NoteKind } from "./lib/validators";
 
@@ -22,7 +23,8 @@ function signedRoute(handle: (ctx: ActionCtx, payload: Payload) => Promise<unkno
       }
       const result = (await handle(ctx, payload)) ?? { ok: true };
       return new Response(JSON.stringify(result), { headers: { "Content-Type": "application/json" } });
-    } catch {
+    } catch (error) {
+      console.error(error);
       return new Response("Bad payload", { status: 400 });
     }
   });
@@ -35,11 +37,11 @@ http.route({
   method: "POST",
   handler: signedRoute((ctx, p) =>
     ctx.runMutation(internal.notifications.record, {
-      eventId: String(p.eventId),
+      eventId: p.eventId as string,
       userId: p.recipientId as Id<"users">,
       loanId: (p.loanId ?? undefined) as Id<"loans"> | undefined,
       kind: p.kind as NoteKind,
-      message: String(p.message),
+      message: p.message as string,
     }),
   ),
 });
@@ -47,14 +49,17 @@ http.route({
 http.route({
   path: "/n8n/overdue",
   method: "POST",
-  handler: signedRoute((ctx, p) => ctx.runQuery(internal.loans.overdue, { today: String(p.runDate) })),
+  handler: signedRoute((ctx, p) => {
+    if (typeof p.runDate !== "string" || !isIsoDate(p.runDate)) throw new Error("runDate must be YYYY-MM-DD");
+    return ctx.runQuery(internal.loans.overdue, { today: p.runDate });
+  }),
 });
 
 http.route({
   path: "/n8n/alert",
   method: "POST",
   handler: signedRoute((ctx, p) =>
-    ctx.runMutation(internal.notifications.alertAdmins, { eventId: `alert:${p.executionId}`, message: String(p.message) }),
+    ctx.runMutation(internal.notifications.alertAdmins, { eventId: `alert:${p.executionId}`, message: p.message as string }),
   ),
 });
 
