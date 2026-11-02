@@ -1,0 +1,127 @@
+{
+  "id": "lendloopErrors01",
+  "name": "LendLoop errors",
+  "active": false,
+  "nodes": [
+    {
+      "id": "63b7a2ec-7bf7-520b-add0-ed58daed9bdd",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "6341624f-0cd3-5d2b-a92e-b3218eaeaa54",
+      "name": "Alert body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const { execution, workflow } = $input.first().json;\nconst message = `${workflow.name} failed at \"${execution.lastNodeExecuted}\": ${execution.error.message}`;\nreturn [{ json: { body: JSON.stringify({ ts: Date.now(), executionId: String(execution.id), message }) } }];"
+      }
+    },
+    {
+      "id": "4131700c-7380-5da2-b82e-ba5e999bdca8",
+      "name": "Sign",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.body }}",
+        "dataPropertyName": "signature",
+        "encoding": "hex"
+      },
+      "credentials": {
+        "crypto": {
+          "id": "lendloopHmac0001",
+          "name": "LendLoop HMAC"
+        }
+      }
+    },
+    {
+      "id": "f4449673-8701-500f-9df2-62f0ae65bb19",
+      "name": "Alert admins",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3211/n8n/alert",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Alert body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert body": {
+      "main": [
+        [
+          {
+            "node": "Sign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign": {
+      "main": [
+        [
+          {
+            "node": "Alert admins",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Karachi"
+  },
+  "pinData": {}
+}

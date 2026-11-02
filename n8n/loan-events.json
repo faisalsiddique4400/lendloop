@@ -1,0 +1,316 @@
+{
+  "id": "lendloopEvents01",
+  "name": "LendLoop loan events",
+  "active": false,
+  "nodes": [
+    {
+      "id": "cd59482b-8caf-5772-8257-388c7f561e3f",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lendloop-events",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "webhookId": "5b1c9e0a-7a51-4f0e-9a52-1e1d0c4e0a01"
+    },
+    {
+      "id": "2c0fc1bb-46fc-5541-8530-5d9a19e3d76c",
+      "name": "Expected signature",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "dataPropertyName": "expected",
+        "encoding": "hex"
+      },
+      "credentials": {
+        "crypto": {
+          "id": "lendloopHmac0001",
+          "name": "LendLoop HMAC"
+        }
+      }
+    },
+    {
+      "id": "61415fab-9f81-536f-8800-507c15b4c6b2",
+      "name": "Check signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst item = $input.first().json;\nconst given = Buffer.from(String(item.headers['x-lendloop-signature'] ?? ''), 'hex');\nconst expected = Buffer.from(item.expected, 'hex');\nconst fresh = Math.abs(Date.now() - Number(item.body.ts)) < 5 * 60 * 1000;\nconst ok = fresh && given.length === expected.length && crypto.timingSafeEqual(given, expected);\nreturn [{ json: { ok, event: item.body } }];"
+      }
+    },
+    {
+      "id": "495950e2-1470-53d2-b9e4-f3d047580753",
+      "name": "Signed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "signed",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "18fea675-32ca-5457-b9a4-d56e3c36b81a",
+      "name": "Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\":true}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "c9ffde42-3d20-5081-b8b0-12aa3c143d19",
+      "name": "Write message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const e = $('Check signature').first().json.event;\nconst day = (iso) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });\nconst tool = e.toolName.toLowerCase();\nconst range = `${day(e.startDate)} to ${day(e.endDate)}`;\nconst message = {\n  request_created: `A neighbor wants to borrow your ${tool}, ${range}.`,\n  request_approved: `Your request for the ${tool} was approved for ${range}.`,\n  request_declined: `Your request for the ${tool} was declined.`,\n  loan_returned: `The ${tool} is marked returned. Thanks for bringing it back.`,\n  overdue_reminder: `The ${tool} was due back ${day(e.endDate)}. Please return it soon.`,\n}[e.kind];\nif (!message) throw new Error(`Unknown event kind ${e.kind}`);\nconst body = JSON.stringify({ ts: Date.now(), eventId: e.eventId, recipientId: e.recipientId, loanId: e.loanId, kind: e.kind, message });\nreturn [{ json: { body } }];"
+      }
+    },
+    {
+      "id": "4131700c-7380-5da2-b82e-ba5e999bdca8",
+      "name": "Sign",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        200
+      ],
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.body }}",
+        "dataPropertyName": "signature",
+        "encoding": "hex"
+      },
+      "credentials": {
+        "crypto": {
+          "id": "lendloopHmac0001",
+          "name": "LendLoop HMAC"
+        }
+      }
+    },
+    {
+      "id": "fb6aabf0-59dc-5a36-91c3-bef0d53ba0a4",
+      "name": "Deliver",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3211/n8n/notify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "a2461c13-ccfb-5747-a7cd-7c84f399c2f6",
+      "name": "Rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        420
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Bad signature",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    },
+    {
+      "id": "49286843-6f04-5484-b933-e6a26ecd7be7",
+      "name": "Fail run",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        420
+      ],
+      "parameters": {
+        "errorMessage": "Bad signature on a loan event"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Expected signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expected signature": {
+      "main": [
+        [
+          {
+            "node": "Check signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check signature": {
+      "main": [
+        [
+          {
+            "node": "Signed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signed?": {
+      "main": [
+        [
+          {
+            "node": "Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accepted": {
+      "main": [
+        [
+          {
+            "node": "Write message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write message": {
+      "main": [
+        [
+          {
+            "node": "Sign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign": {
+      "main": [
+        [
+          {
+            "node": "Deliver",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rejected": {
+      "main": [
+        [
+          {
+            "node": "Fail run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lendloopErrors01",
+    "timezone": "Asia/Karachi"
+  },
+  "pinData": {}
+}

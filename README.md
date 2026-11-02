@@ -38,24 +38,33 @@ n8n "errors" ──signed──> Convex /n8n/alert ──> admins' inbox
 
 ### n8n
 
-1. `cp .env.example .env`, then set `N8N_ENCRYPTION_KEY` (`openssl rand -hex 32`).
-2. `docker compose up -d tunnel`, then read the tunnel URL: `docker compose logs tunnel | grep trycloudflare`.
-3. Put it in `.env` as `N8N_PUBLIC_URL`, then `docker compose up -d n8n`.
-4. Pick a secret and set it on Convex: `npx convex env set LENDLOOP_HMAC_SECRET <secret>` and `npx convex env set N8N_WEBHOOK_URL <N8N_PUBLIC_URL>/webhook/lendloop-events`.
-5. In n8n (http://localhost:5678) create a Crypto credential named `LendLoop HMAC` with the same secret.
-6. Import the three files in `n8n/`. In each HTTP Request node, replace the Convex site URL with yours. Publish "LendLoop loan events" and "LendLoop overdue reminders". Set "LendLoop errors" as the error workflow on both.
+Everything runs on your machine. The local Convex backend and n8n in Docker reach each other directly, so no account or tunnel is needed.
 
-The quick-tunnel URL changes on every restart. Repeat steps 2 to 4 when it does.
+1. `cp .env.example .env`, then fill in `TZ`, `N8N_ENCRYPTION_KEY` (`openssl rand -hex 32`) and `N8N_PUBLIC_URL=http://localhost:5678`.
+2. `docker compose up -d n8n`, open http://localhost:5678 and create the owner account.
+3. Pick a signing secret (`openssl rand -hex 32`) and give it to both sides:
+   - Convex: `npx convex env set LENDLOOP_HMAC_SECRET <secret>` and `npx convex env set N8N_WEBHOOK_URL http://localhost:5678/webhook/lendloop-events`
+   - n8n: Credentials, Create, "Crypto", named `LendLoop HMAC`, with the secret as the Hmac Secret.
+4. Import and publish the workflows:
+   ```bash
+   docker compose cp n8n/. n8n:/tmp/wf
+   docker compose exec n8n n8n import:workflow --separate --input=/tmp/wf
+   docker compose exec n8n sh -c 'for id in lendloopErrors01 lendloopEvents01 lendloopOverdue1; do n8n publish:workflow --id=$id; done'
+   docker compose restart n8n
+   ```
+   The workflows call Convex at `http://host.docker.internal:3211`, the local HTTP actions port. "LendLoop errors" is already set as the error workflow on the other two.
+
+With a Convex cloud deployment instead, n8n needs a public URL: run `docker compose up -d tunnel`, read the URL with `docker compose logs tunnel | grep trycloudflare`, use it for `N8N_PUBLIC_URL` and `N8N_WEBHOOK_URL`, and point the HTTP Request nodes at `https://<deployment>.convex.site`. The quick-tunnel URL changes on every restart.
 
 ### Demo the error workflow
 
 n8n only runs error workflows for production runs. Send a forged event to the live webhook:
 
 ```bash
-curl -i -X POST "$N8N_PUBLIC_URL/webhook/lendloop-events" -H 'Content-Type: application/json' -H 'X-LendLoop-Signature: 00' --data '{"ts":1}'
+curl -i -X POST http://localhost:5678/webhook/lendloop-events -H 'Content-Type: application/json' -H 'X-LendLoop-Signature: 00' --data '{"ts":1}'
 ```
 
-The run fails on purpose and the admin sees the alert in the Inbox and on the Admin page.
+n8n answers 401, the run fails on purpose, and the admin sees the alert in the Inbox and on the Admin page.
 
 ## Tests
 

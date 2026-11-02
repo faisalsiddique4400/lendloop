@@ -1,0 +1,239 @@
+{
+  "id": "lendloopOverdue1",
+  "name": "LendLoop overdue reminders",
+  "active": false,
+  "nodes": [
+    {
+      "id": "f642358c-6583-5c3e-a73c-bebdb1aaaec8",
+      "name": "Every day at 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3ac90268-cc7f-52e5-a3aa-ea0a42939ee5",
+      "name": "Run date",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const runDate = $now.toFormat('yyyy-MM-dd');\nreturn [{ json: { runDate, body: JSON.stringify({ ts: Date.now(), runDate }) } }];"
+      }
+    },
+    {
+      "id": "4131700c-7380-5da2-b82e-ba5e999bdca8",
+      "name": "Sign",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.body }}",
+        "dataPropertyName": "signature",
+        "encoding": "hex"
+      },
+      "credentials": {
+        "crypto": {
+          "id": "lendloopHmac0001",
+          "name": "LendLoop HMAC"
+        }
+      }
+    },
+    {
+      "id": "d5e340ad-08fd-5736-84d3-1ecbf7adae32",
+      "name": "Get overdue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3211/n8n/overdue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "bfa1cae7-1320-58fa-bcb4-1d22312c8479",
+      "name": "Reminder bodies",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const runDate = $('Run date').first().json.runDate;\nconst day = (iso) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });\nreturn $input.all()\n  .map((item) => item.json)\n  .filter((loan) => loan.loanId)\n  .map((loan) => ({\n    json: {\n      body: JSON.stringify({\n        ts: Date.now(),\n        eventId: `overdue:${loan.loanId}:${runDate}`,\n        recipientId: loan.borrowerId,\n        loanId: loan.loanId,\n        kind: 'overdue_reminder',\n        message: `The ${loan.toolName.toLowerCase()} was due back ${day(loan.endDate)}. Please return it soon.`,\n      }),\n    },\n  }));"
+      }
+    },
+    {
+      "id": "efe41c3e-670b-58cb-9546-8b0cb7bb096d",
+      "name": "Sign each",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.body }}",
+        "dataPropertyName": "signature",
+        "encoding": "hex"
+      },
+      "credentials": {
+        "crypto": {
+          "id": "lendloopHmac0001",
+          "name": "LendLoop HMAC"
+        }
+      }
+    },
+    {
+      "id": "fb6aabf0-59dc-5a36-91c3-bef0d53ba0a4",
+      "name": "Deliver",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3211/n8n/notify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Every day at 09:00": {
+      "main": [
+        [
+          {
+            "node": "Run date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run date": {
+      "main": [
+        [
+          {
+            "node": "Sign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign": {
+      "main": [
+        [
+          {
+            "node": "Get overdue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get overdue": {
+      "main": [
+        [
+          {
+            "node": "Reminder bodies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder bodies": {
+      "main": [
+        [
+          {
+            "node": "Sign each",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign each": {
+      "main": [
+        [
+          {
+            "node": "Deliver",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lendloopErrors01",
+    "timezone": "Asia/Karachi"
+  },
+  "pinData": {}
+}
