@@ -21,7 +21,7 @@ echo "      overdue loans: $(cat /tmp/lendloop-smoke.out)"
 if [ -n "${SMOKE_USER_ID:-}" ]; then
   note="{\"ts\":$(now_ms),\"eventId\":\"smoke:$(date +%s)\",\"recipientId\":\"$SMOKE_USER_ID\",\"kind\":\"request_created\",\"message\":\"Smoke test notice\"}"
   expect "notice is written" "$(post /n8n/notify "$note")" 200
-  grep -q '"created":true' /tmp/lendloop-smoke.out && echo "ok    first write created a row"
+  grep -q '"created":true' /tmp/lendloop-smoke.out && echo "ok    first write created a row" || { echo "FAIL  first write created a row"; exit 1; }
   post /n8n/notify "$note" >/dev/null
-  grep -q '"created":false' /tmp/lendloop-smoke.out && echo "ok    replay wrote nothing new"
+  grep -q '"created":false' /tmp/lendloop-smoke.out && echo "ok    replay wrote nothing new" || { echo "FAIL  replay wrote nothing new"; exit 1; }
 fi
