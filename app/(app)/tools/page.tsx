@@ -8,6 +8,7 @@ import { ToolRow, type ListedTool } from "@/components/ToolRow";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ListSkeleton } from "@/components/ui/Skeleton";
 import { api } from "@/convex/_generated/api";
+import { plural } from "@/convex/lib/dates";
 import { CATEGORIES } from "@/convex/lib/validators";
 import { filterTools } from "@/lib/filterTools";
 
@@ -38,7 +39,9 @@ export default function ToolsPage() {
       <div className="page-head">
         <div>
           <h1>Tools</h1>
-          <p className="muted">{tools ? `${tools.length} tools from ${neighbors} neighbors` : "Loading tools"}</p>
+          <p className="muted">
+            {tools ? `${plural(tools.length, "tool")}${neighbors ? ` from ${plural(neighbors, "neighbor")}` : ""}` : "Loading tools"}
+          </p>
         </div>
         <Link href="/listings" className="btn">
           List a tool

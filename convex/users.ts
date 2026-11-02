@@ -7,8 +7,9 @@ export const store = mutation({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError("Sign in first");
-    const name = identity.name ?? identity.email ?? "Neighbor";
     const email = identity.email?.toLowerCase() ?? "";
+    const handle = email.split("@")[0];
+    const name = identity.name?.trim() || (handle ? handle[0].toUpperCase() + handle.slice(1) : "Neighbor");
     const existing = await getUser(ctx);
     if (!existing) {
       return await ctx.db.insert("users", { tokenIdentifier: identity.tokenIdentifier, name, email, role: "user", trusted: false });

@@ -14,6 +14,13 @@ test("store creates a user once", async () => {
   });
 });
 
+test("a user with no name never shows their email to neighbors", async () => {
+  const t = setup();
+  const as = t.withIdentity({ name: "", email: "Faisal@Example.com", subject: "f", tokenIdentifier: "test|f" });
+  await as.mutation(api.users.store, {});
+  expect(await as.query(api.users.me, {})).toMatchObject({ name: "Faisal", email: "faisal@example.com" });
+});
+
 test("signed-out callers get null from me and an error from store", async () => {
   const t = setup();
   expect(await t.query(api.users.me, {})).toBeNull();
