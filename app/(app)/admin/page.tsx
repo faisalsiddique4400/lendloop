@@ -38,6 +38,15 @@ export default function AdminPage() {
 
   const alert = notes?.find((note) => note.kind === "automation_failed" && !note.read);
 
+  async function attempt(action: () => Promise<unknown>, done?: string) {
+    try {
+      await action();
+      if (done) toast(done);
+    } catch (err) {
+      toast(errorText(err));
+    }
+  }
+
   async function remove(toolId: Id<"tools">, name: string) {
     if (!window.confirm(`Remove the ${name.toLowerCase()} for everyone? This can't be undone.`)) return;
     try {
@@ -57,7 +66,7 @@ export default function AdminPage() {
       {alert && (
         <div className="notice notice-danger" role="alert">
           <span>{alert.message}</span>
-          <Button variant="quiet" size="sm" onClick={() => markRead({ id: alert._id })}>
+          <Button variant="quiet" size="sm" onClick={() => attempt(() => markRead({ id: alert._id }))}>
             Dismiss
           </Button>
         </div>
@@ -156,7 +165,12 @@ export default function AdminPage() {
                         <input
                           type="checkbox"
                           checked={person.trusted}
-                          onChange={(e) => setTrusted({ userId: person._id, trusted: e.target.checked })}
+                          onChange={(e) =>
+                            attempt(
+                              () => setTrusted({ userId: person._id, trusted: e.target.checked }),
+                              `${person.name} is ${e.target.checked ? "now" : "no longer"} a Trusted Lender.`,
+                            )
+                          }
                         />
                         {person.trusted ? "Yes" : "No"}
                       </label>

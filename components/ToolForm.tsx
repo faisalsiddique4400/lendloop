@@ -21,6 +21,7 @@ export function ToolForm({ editing, onDone }: { editing: MyTool | null; onDone: 
   );
   const [tried, setTried] = useState(false);
   const [serverError, setServerError] = useState("");
+  const [saving, setSaving] = useState(false);
   const create = useMutation(api.tools.create);
   const update = useMutation(api.tools.update);
   const toast = useToast();
@@ -31,7 +32,8 @@ export function ToolForm({ editing, onDone }: { editing: MyTool | null; onDone: 
   async function save(event: FormEvent) {
     event.preventDefault();
     setTried(true);
-    if (!values.name.trim()) return;
+    if (saving || !values.name.trim()) return;
+    setSaving(true);
     try {
       if (editing) {
         await update({ toolId: editing._id, ...values });
@@ -46,6 +48,8 @@ export function ToolForm({ editing, onDone }: { editing: MyTool | null; onDone: 
       onDone();
     } catch (err) {
       setServerError(errorText(err));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -53,7 +57,7 @@ export function ToolForm({ editing, onDone }: { editing: MyTool | null; onDone: 
     <form className="panel form" aria-labelledby="form-h" onSubmit={save} noValidate>
       <h2 id="form-h">{editing ? `Edit ${editing.name}` : "Add a tool"}</h2>
       <Field id="tname" label="Name" error={nameError}>
-        <input id="tname" value={values.name} maxLength={60} onChange={(e) => set("name", e.target.value)} aria-invalid={!!nameError} aria-describedby="tname-msg" />
+        <input id="tname" value={values.name} maxLength={60} onChange={(e) => set("name", e.target.value)} aria-invalid={!!nameError} aria-describedby={nameError ? "tname-msg" : undefined} />
       </Field>
       <div className="two">
         <Field id="tcat" label="Category">
@@ -94,7 +98,7 @@ export function ToolForm({ editing, onDone }: { editing: MyTool | null; onDone: 
             Cancel
           </Button>
         )}
-        <Button type="submit" variant="primary">
+        <Button type="submit" variant="primary" disabled={saving}>
           {editing ? "Save changes" : "Save tool"}
         </Button>
       </div>

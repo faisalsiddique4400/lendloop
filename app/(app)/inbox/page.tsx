@@ -6,15 +6,21 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ListSkeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { errorText } from "@/lib/errors";
 
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 
 export default function InboxPage() {
   const notes = useQuery(api.notifications.mine);
   const markRead = useMutation(api.notifications.markRead);
+  const toast = useToast();
   const [openedAt] = useState(() => Date.now());
   const [now] = useState(() => new Date());
+
+  const read = (id?: Id<"notifications">) => markRead(id ? { id } : {}).catch((err) => toast(errorText(err)));
 
   if (notes === undefined) return <ListSkeleton />;
   const unread = notes.filter((note) => !note.read).length;
@@ -30,7 +36,7 @@ export default function InboxPage() {
           <h1>Inbox</h1>
           <p className="muted">{unread} new</p>
         </div>
-        <Button size="sm" disabled={!unread} onClick={() => markRead({})}>
+        <Button size="sm" disabled={!unread} onClick={() => read()}>
           Mark all read
         </Button>
       </div>
@@ -60,7 +66,7 @@ export default function InboxPage() {
                   <Link
                     href={note.kind === "automation_failed" ? "/admin" : "/requests"}
                     className="btn btn-quiet btn-sm"
-                    onClick={() => !note.read && markRead({ id: note._id })}
+                    onClick={() => !note.read && read(note._id)}
                   >
                     View
                   </Link>
