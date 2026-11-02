@@ -65,7 +65,7 @@ https://clerk.com/docs/reference/nextjs/clerk-middleware
 **UI auth state:** Use Convex's `useConvexAuth()`, not Clerk's `useAuth()`. It confirms that the Convex backend has validated the token. Use `<Authenticated>`, `<Unauthenticated>` and `<AuthLoading>`; components that call authenticated queries must sit inside `<Authenticated>`. https://docs.convex.dev/auth/clerk
 
 **Identity in functions:** `await ctx.auth.getUserIdentity()` returns `null` when the caller is unauthenticated. https://docs.convex.dev/auth/clerk
-- It always includes `tokenIdentifier`, `subject` (the Clerk user ID) and `issuer`. With Clerk it also includes `email`, `name` fields and the like. Any custom claims you configure are returned too. https://docs.convex.dev/auth/functions-auth
+- It always includes `tokenIdentifier`, `subject` (the Clerk user ID) and `issuer`. With Clerk's native integration the default session token carries no `name` or `email`; add them under Sessions, Customize session token, and they are then returned as custom claims. https://docs.convex.dev/auth/functions-auth
 
 **Server rendering (optional):** `preloadQuery` and `fetchQuery` come from `convex/nextjs`. Pass `{ token }`, where the token is `(await auth()).getToken()` from `@clerk/nextjs/server`. This is in beta. https://docs.convex.dev/client/nextjs/app-router/server-rendering
 

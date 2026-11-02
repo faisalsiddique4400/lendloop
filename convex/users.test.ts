@@ -36,4 +36,7 @@ test("makeAdmin promotes by email", async () => {
   await t.mutation(internal.users.makeAdmin, { email: "ali@example.com" });
   expect(await ali.as.query(api.users.me, {})).toMatchObject({ role: "admin" });
   await expect(t.mutation(internal.users.makeAdmin, { email: "nobody@example.com" })).rejects.toThrow("No user");
+  const ada = await signIn(t, "Ada");
+  await t.mutation(internal.users.makeAdmin, { email: "ADA@example.com" });
+  expect(await ada.as.query(api.users.me, {})).toMatchObject({ role: "admin" });
 });

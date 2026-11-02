@@ -32,6 +32,7 @@ n8n "errors" ──signed──> Convex /n8n/alert ──> admins' inbox
 1. `npm install`
 2. Convex: `npx convex dev` (log in, create a project). Leave it running.
 3. Clerk: create an app, activate the Convex integration, and copy the keys into `.env.local` (see `.env.example`). Then `npx convex env set CLERK_FRONTEND_API_URL <frontend api url>`.
+   In Clerk, go to Sessions, Customize session token, and add `{"name": "{{user.full_name}}", "email": "{{user.primary_email_address}}"}`. The default token has no name or email, so neighbors would show as "Neighbor" and `makeAdmin` could not find you.
 4. `npm run dev` and open http://localhost:3000. Sign in once, then make yourself admin:
    `npx convex run users:makeAdmin '{"email":"you@example.com"}'`
 

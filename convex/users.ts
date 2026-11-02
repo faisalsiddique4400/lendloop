@@ -8,7 +8,7 @@ export const store = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError("Sign in first");
     const name = identity.name ?? identity.email ?? "Neighbor";
-    const email = identity.email ?? "";
+    const email = identity.email?.toLowerCase() ?? "";
     const existing = await getUser(ctx);
     if (!existing) {
       return await ctx.db.insert("users", { tokenIdentifier: identity.tokenIdentifier, name, email, role: "user", trusted: false });
@@ -49,9 +49,9 @@ export const makeAdmin = internalMutation({
   handler: async (ctx, { email }) => {
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), email))
+      .filter((q) => q.eq(q.field("email"), email.toLowerCase()))
       .first();
-    if (!user) throw new ConvexError("No user with that email. Sign in once first.");
+    if (!user) throw new ConvexError("No user with that email. Sign in once, and check the session token has an email claim.");
     await ctx.db.patch(user._id, { role: "admin" });
   },
 });
