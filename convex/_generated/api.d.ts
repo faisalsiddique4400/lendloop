@@ -9,6 +9,7 @@
  */
 
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_bookings from "../lib/bookings.js";
 import type * as lib_dates from "../lib/dates.js";
 import type * as lib_events from "../lib/events.js";
 import type * as lib_hmac from "../lib/hmac.js";
@@ -26,6 +27,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
+  "lib/bookings": typeof lib_bookings;
   "lib/dates": typeof lib_dates;
   "lib/events": typeof lib_events;
   "lib/hmac": typeof lib_hmac;
