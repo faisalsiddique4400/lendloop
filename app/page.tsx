@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { LoopStage } from "@/components/landing/LoopStage";
 import { SignInCta } from "@/components/landing/SignInCta";
 import { api } from "@/convex/_generated/api";
+import { plural } from "@/convex/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,10 @@ const STEPS = [
 const delay = (step: number) => ({ "--d": step }) as CSSProperties;
 
 export default async function Home() {
-  const [tools, recent] = await Promise.all([fetchQuery(api.tools.listPublic), fetchQuery(api.loans.recent)]);
+  const [tools, recent] = await Promise.all([
+    fetchQuery(api.tools.listPublic).catch(() => []),
+    fetchQuery(api.loans.recent).catch(() => []),
+  ]);
 
   return (
     <>
@@ -23,7 +27,7 @@ export default async function Home() {
         <span className="logo">
           Lend<span>Loop</span>
         </span>
-        <SignInCta label="Sign in" size="sm" />
+        <SignInCta size="sm" />
       </header>
 
       <main>
@@ -49,7 +53,7 @@ export default async function Home() {
               Borrow from neighbors for a few days, then hand it back. No buying, no storing.
             </p>
             <div className="cta-row rise" style={delay(4)}>
-              <SignInCta label="Sign in to borrow" size="lg" />
+              <SignInCta size="lg" />
               <a href="#how" className="link">
                 How it works
               </a>
@@ -58,7 +62,7 @@ export default async function Home() {
           <LoopStage style={delay(3)} />
         </section>
 
-        {recent.length > 0 && (
+        {recent.length >= 4 && (
           <div className="ticker rise" style={delay(5)} aria-label="Recent activity">
             <div className="ticker-in">
               {[...recent, ...recent].map((item, i) => (
@@ -90,7 +94,7 @@ export default async function Home() {
         <section className="wrap avail" aria-labelledby="avail-h">
           <div className="avail-head reveal">
             <h2 id="avail-h">Free to borrow today</h2>
-            <span className="sub">{tools.length} tools</span>
+            <span className="sub">{plural(tools.length, "tool")}</span>
           </div>
           {tools.length ? (
             <ul className="plain avail-grid stagger">
