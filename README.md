@@ -61,6 +61,13 @@ The run fails on purpose and the admin sees the alert in the Inbox and on the Ad
 - `npm test` runs the Convex tests (auth guards, loan rules, date overlap, once-a-day reminders, idempotent notices, HMAC good, bad and stale, retries) and the browse filter.
 - `scripts/smoke.sh` checks the signed routes against a real deployment.
 
+### Manual check
+
+1. Sign in as two users in two browser profiles.
+2. User B requests user A's tool. A sees it in Requests and Inbox without a reload.
+3. A approves. B's Inbox shows the approval.
+4. In the Convex dashboard, set that loan's `endDate` to yesterday. Run "LendLoop overdue reminders" in n8n twice. B gets one reminder.
+
 ## For production
 
 - Use a named Cloudflare tunnel or n8n Cloud instead of a quick tunnel.
