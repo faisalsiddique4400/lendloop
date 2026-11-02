@@ -55,5 +55,7 @@ describe("dates", () => {
     expect(plural(2, "request")).toBe("2 requests");
     expect(isIsoDate("2026-11-05")).toBe(true);
     expect(isIsoDate("11/05/2026")).toBe(false);
+    expect(isIsoDate("2026-02-31")).toBe(false);
+    expect(isIsoDate("2026-13-45")).toBe(false);
   });
 });

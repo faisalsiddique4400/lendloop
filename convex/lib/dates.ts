@@ -10,7 +10,8 @@ export const todayIso = (now = Date.now()) => new Date(now).toISOString().slice(
 export const localToday = () => new Date().toLocaleDateString("en-CA");
 export const addDays = (iso: string, days: number) => todayIso(Date.parse(iso) + days * DAY_MS);
 export const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
-export const isIsoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
+export const isIsoDate = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && todayIso(Date.parse(value)) === value;
 export const overlaps = (a: Span, b: Span) => a.startDate <= b.endDate && b.startDate <= a.endDate;
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 export const formatDay = (iso: string) =>
