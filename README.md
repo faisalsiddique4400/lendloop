@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LendLoop
 
-## Getting Started
+A tool-lending board for one neighborhood. Neighbors list tools, ask to borrow them for set dates, and get notices when something changes. An admin can mark Trusted Lenders and clean up listings.
 
-First, run the development server:
+Built for the Fluence Full-Stack Developer take-home.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Stack
+
+- Next.js 16 (App Router) and one plain stylesheet
+- Clerk for sign-in, using Clerk's native Convex integration
+- Convex for data, access checks and HTTP routes
+- n8n 2.45 in Docker for notifications and the daily overdue run
+
+## How it fits together
+
+```
+browser ──Clerk JWT──> Convex mutation ──schedules──> n8n.send (retries 2s, 8s, 30s)
+                                                          │ signed POST
+                                                          v
+                         Convex /n8n/notify <──signed── n8n "loan events"
+n8n "overdue" (daily 09:00) ──signed──> Convex /n8n/overdue, then /n8n/notify per loan
+n8n "errors" ──signed──> Convex /n8n/alert ──> admins' inbox
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Every public Convex function checks the caller first (`convex/lib/auth.ts`). The UI hides buttons for convenience only.
+- Both directions are signed: `X-LendLoop-Signature` is HMAC-SHA256 of the raw body. The body carries `ts`, and anything older than 5 minutes is refused.
+- Inbox writes are idempotent on `eventId`, so n8n retries and reruns never duplicate a notice.
+- No names or emails leave Convex. n8n sees ids, a tool name and dates.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Run it locally
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. `npm install`
+2. Convex: `npx convex dev` (log in, create a project). Leave it running.
+3. Clerk: create an app, activate the Convex integration, and copy the keys into `.env.local` (see `.env.example`). Then `npx convex env set CLERK_FRONTEND_API_URL <frontend api url>`.
+4. `npm run dev` and open http://localhost:3000. Sign in once, then make yourself admin:
+   `npx convex run users:makeAdmin '{"email":"you@example.com"}'`
 
-## Learn More
+### n8n
 
-To learn more about Next.js, take a look at the following resources:
+1. `cp .env.example .env`, then set `N8N_ENCRYPTION_KEY` (`openssl rand -hex 32`).
+2. `docker compose up -d tunnel`, then read the tunnel URL: `docker compose logs tunnel | grep trycloudflare`.
+3. Put it in `.env` as `N8N_PUBLIC_URL`, then `docker compose up -d n8n`.
+4. Pick a secret and set it on Convex: `npx convex env set LENDLOOP_HMAC_SECRET <secret>` and `npx convex env set N8N_WEBHOOK_URL <N8N_PUBLIC_URL>/webhook/lendloop-events`.
+5. In n8n (http://localhost:5678) create a Crypto credential named `LendLoop HMAC` with the same secret.
+6. Import the three files in `n8n/`. In each HTTP Request node, replace the Convex site URL with yours. Publish "LendLoop loan events" and "LendLoop overdue reminders". Set "LendLoop errors" as the error workflow on both.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The quick-tunnel URL changes on every restart. Repeat steps 2 to 4 when it does.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Demo the error workflow
 
-## Deploy on Vercel
+n8n only runs error workflows for production runs. Send a forged event to the live webhook:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+curl -i -X POST "$N8N_PUBLIC_URL/webhook/lendloop-events" -H 'X-LendLoop-Signature: 00' --data '{"ts":1}'
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The run fails on purpose and the admin sees the alert in the Inbox and on the Admin page.
+
+## Tests
+
+- `npm test` runs the Convex tests (auth guards, loan rules, date overlap, once-a-day reminders, idempotent notices, HMAC good, bad and stale, retries) and the browse filter.
+- `scripts/smoke.sh` checks the signed routes against a real deployment.
+
+## For production
+
+- Use a named Cloudflare tunnel or n8n Cloud instead of a quick tunnel.
+- Use one secret per direction and rotate them.
+- Rate-limit the `/n8n/*` routes.
+- Give production its own Convex deployment and Clerk instance.
+- Add Sentry to the app and alert on `automation_failed` notices.
+- Real email: an HTTP Request node to Resend with the `eventId` as the `Idempotency-Key`.
