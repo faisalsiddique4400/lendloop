@@ -8,7 +8,7 @@ Two kinds of tests: automated ones you run with one command, and manual ones you
 npm test
 ```
 
-38 tests in 10 files. They run against an in-memory Convex, so nothing needs to be running.
+41 tests in 11 files. They run against an in-memory Convex, so nothing needs to be running.
 
 | Area | What the tests prove |
 |---|---|
@@ -21,7 +21,8 @@ npm test
 | Inbox (`convex/notifications.test.ts`) | Each event writes once, people only see their own notices, admins get alerts once |
 | n8n sender (`convex/n8n.test.ts`) | Signed body with no names, 3 retries then an admin alert, missing settings alert instead of crashing |
 | n8n routes (`convex/http.test.ts`) | Replays write nothing new; bad signature, stale time and missing fields are refused |
-| Browse filter (`lib/filterTools.test.ts`) | Search, category and "Available now" work together |
+| Browse filter and sort (`lib/filterTools.test.ts`) | Search, category and "Available now" work together; sort by newest, name or available first |
+| Status filter (`lib/filterLoans.test.ts`) | Loans group into Waiting, Out now, Overdue and Closed with the right counts; search matches the tool or either neighbor |
 
 Also run `npm run typecheck` and `npm run lint`. Both should print no errors.
 
@@ -67,3 +68,13 @@ Start the app (`npx convex dev`, `npm run dev`, `docker compose up -d n8n`). Use
 | 26 | Inbox: Mark all read | Count clears, dots disappear |
 | 27 | Shrink the window to phone width (375 px) | No sideways scrolling on any page |
 | 28 | Switch the OS to dark mode | All pages switch to the dark palette and stay readable |
+| 29 | Browse: change the sort to "Name A to Z", then "Available first" | Rows reorder; free tools come first with the second option |
+| 30 | Browse: pick a category with no tools | "Nothing matches these filters" with a Clear filters button that resets search, category and the switch |
+| 31 | Requests: click each status chip (All, Waiting, Out now, Overdue, Closed) | Counts on the chips match the rows shown; an empty group offers Clear filters |
+| 32 | Admin, All loans: search a neighbor's name, then pick a status chip | Only that neighbor's loans in that status remain |
+| 33 | Admin, Listings: choose a category; Neighbors: turn on "Trusted only" | Lists narrow to that category and to trusted neighbors |
+| 34 | Any list at phone width | Column headers hide and rows stack, with no sideways scrolling |
+
+## Last run
+
+2026-11-02, on the local setup with two users. All 41 automated tests pass and all 34 manual cases pass. Case 2 was checked by applying the reduce-motion rule in the browser, not by changing the OS setting.
