@@ -1,0 +1,22 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.45.7
+    restart: unless-stopped
+    ports: ["5678:5678"]
+    environment:
+      - GENERIC_TIMEZONE=${TZ}
+      - TZ=${TZ}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_WEBHOOK_URL=${N8N_PUBLIC_URL}
+      - N8N_PROXY_HOPS=1
+      - NODE_FUNCTION_ALLOW_BUILTIN=crypto
+    volumes: ["n8n_data:/home/node/.n8n"]
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://n8n:5678
+    depends_on: [n8n]
+
+volumes:
+  n8n_data:
