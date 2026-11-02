@@ -52,7 +52,7 @@ The quick-tunnel URL changes on every restart. Repeat steps 2 to 4 when it does.
 n8n only runs error workflows for production runs. Send a forged event to the live webhook:
 
 ```bash
-curl -i -X POST "$N8N_PUBLIC_URL/webhook/lendloop-events" -H 'X-LendLoop-Signature: 00' --data '{"ts":1}'
+curl -i -X POST "$N8N_PUBLIC_URL/webhook/lendloop-events" -H 'Content-Type: application/json' -H 'X-LendLoop-Signature: 00' --data '{"ts":1}'
 ```
 
 The run fails on purpose and the admin sees the alert in the Inbox and on the Admin page.

@@ -14,7 +14,7 @@ services:
     volumes: ["n8n_data:/home/node/.n8n"]
 
   tunnel:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.3.0
     command: tunnel --no-autoupdate --url http://n8n:5678
     depends_on: [n8n]
 
