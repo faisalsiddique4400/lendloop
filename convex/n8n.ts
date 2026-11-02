@@ -1,0 +1,41 @@
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import { internalAction } from "./_generated/server";
+import { eventFields } from "./lib/events";
+import { sign } from "./lib/hmac";
+
+const BACKOFF_MS = [2_000, 8_000, 30_000];
+const TIMEOUT_MS = 10_000;
+
+export const send = internalAction({
+  args: { ...eventFields, attempt: v.number() },
+  handler: async (ctx, { attempt, ...event }) => {
+    const url = process.env.N8N_WEBHOOK_URL;
+    const secret = process.env.LENDLOOP_HMAC_SECRET;
+    if (!url || !secret) throw new Error("Set N8N_WEBHOOK_URL and LENDLOOP_HMAC_SECRET on the Convex deployment");
+
+    const body = JSON.stringify({ ts: Date.now(), ...event });
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-LendLoop-Signature": await sign(secret, body) },
+        body,
+        signal: abort.signal,
+      });
+      if (!response.ok) throw new Error(`n8n answered ${response.status}`);
+    } catch (error) {
+      if (attempt < BACKOFF_MS.length) {
+        await ctx.scheduler.runAfter(BACKOFF_MS[attempt], internal.n8n.send, { ...event, attempt: attempt + 1 });
+        return;
+      }
+      await ctx.runMutation(internal.notifications.alertAdmins, {
+        eventId: `failed:${event.eventId}`,
+        message: `Couldn't reach n8n for the ${event.toolName.toLowerCase()} after ${BACKOFF_MS.length + 1} tries: ${String(error)}`,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+});
