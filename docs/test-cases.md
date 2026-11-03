@@ -8,7 +8,7 @@ Two kinds of tests: automated ones you run with one command, and manual ones you
 npm test
 ```
 
-41 tests in 11 files. They run against an in-memory Convex, so nothing needs to be running.
+They run against an in-memory Convex, so nothing needs to be running.
 
 | Area | What the tests prove |
 |---|---|
@@ -63,8 +63,8 @@ Start the app (`npx convex dev`, `npm run dev`, `docker compose up -d n8n`). Use
 | 21 | As B, open /admin | "Admins only" |
 | 22 | As A, open Admin, Neighbors tab, tick Trusted for B | Toast confirms; B's tools show a "Trusted" badge on Browse |
 | 23 | As A, Admin, Listings tab, Remove a free tool | Confirm dialog, toast, tool gone from Browse for both users |
-| 24 | Send the forged request from the README "Demo the error workflow" | n8n answers 401; A sees a red alert on Admin and a notice in the Inbox |
-| 25 | `docker compose stop n8n`, then as B request a tool; wait about 40 seconds | A gets "Couldn't reach n8n … after 4 tries". Start n8n again after |
+| 24 | Send the forged request from the README "Forged requests" | n8n answers 401 and no alert is written |
+| 25 | `docker compose stop n8n`, then as B request a tool; wait about 40 seconds | A gets "Couldn't send the notice for the … after 4 tries. Check that n8n is running." Start n8n again after |
 | 26 | Inbox: Mark all read | Count clears, dots disappear |
 | 27 | Shrink the window to phone width (375 px) | No sideways scrolling on any page |
 | 28 | Switch the OS to dark mode | All pages switch to the dark palette and stay readable |
@@ -75,6 +75,3 @@ Start the app (`npx convex dev`, `npm run dev`, `docker compose up -d n8n`). Use
 | 33 | Admin, Listings: choose a category; Neighbors: turn on "Trusted only" | Lists narrow to that category and to trusted neighbors |
 | 34 | Any list at phone width | Column headers hide and rows stack, with no sideways scrolling |
 
-## Last run
-
-2026-11-02, on the local setup with two users. All 41 automated tests pass and all 34 manual cases pass. Case 2 was checked by applying the reduce-motion rule in the browser, not by changing the OS setting.

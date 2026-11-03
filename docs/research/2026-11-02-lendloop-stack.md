@@ -15,7 +15,7 @@ Researched 2026-11-02 against primary sources (docs.convex.dev, clerk.com/docs, 
 | `@convex-dev/action-retrier` | 0.3.1 | https://registry.npmjs.org/@convex-dev/action-retrier/latest |
 | `@convex-dev/workpool` | 0.4.15 | https://registry.npmjs.org/@convex-dev/workpool/latest |
 
-**Correction to prior knowledge:** `@clerk/clerk-react` is deprecated in favor of `@clerk/react` (Clerk Core 3). For Next.js, install only `@clerk/nextjs`. https://clerk.com/docs/guides/development/upgrading/upgrade-guides/core-3
+**Note:** `@clerk/clerk-react` is deprecated in favor of `@clerk/react` (Clerk Core 3). For Next.js, install only `@clerk/nextjs`. https://clerk.com/docs/guides/development/upgrading/upgrade-guides/core-3
 
 ---
 
@@ -136,7 +136,7 @@ https://clerk.com/docs/reference/nextjs/clerk-middleware
 1. **Cloudflare Quick Tunnel:** `cloudflared tunnel --url http://localhost:5678`. It needs no account and gives a `*.trycloudflare.com` URL that **changes every time you start it**. It allows at most 200 in-flight requests, has no uptime guarantee, and is for testing only. https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/
    - Set n8n's public base URL to the tunnel URL with `N8N_WEBHOOK_URL`, and `N8N_PROXY_HOPS=1`. https://github.com/n8n-io/n8n-docs/blob/main/docs/deploy/host-n8n/configure-n8n/basic-configuration/use-environment-variables/endpoints.md
 2. **n8n's own tunnel:**
-   - **Correction to prior knowledge:** the docs no longer document `n8n start --tunnel`, and `packages/cli/src/commands/start.ts` no longer references a tunnel. https://github.com/n8n-io/n8n/blob/master/packages/cli/src/commands/start.ts
+   - **Note:** the docs no longer document `n8n start --tunnel`, and `packages/cli/src/commands/start.ts` no longer references a tunnel. https://github.com/n8n-io/n8n/blob/master/packages/cli/src/commands/start.ts
    - The current "tunnel" is a cloudflared container driven by the n8n source repo (`pnpm stack --tunnel`). It's useless for a plain Docker install. https://docs.n8n.io/deploy/host-n8n/install-options/install-with-docker
 3. **n8n Cloud:** a public HTTPS URL out of the box, so no tunnel is needed. The Code node there already provides the `crypto` module. https://docs.n8n.io/code/code-node/
 4. **Convex local deployment:**

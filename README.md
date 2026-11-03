@@ -14,6 +14,14 @@ n8n "errors" ──signed──> Convex /n8n/alert ──> admin inbox
 
 Convex owns the data and every access check. n8n only formats and delivers messages.
 
+## Decisions and tradeoffs
+
+- **n8n writes to an in-app inbox, not email.** It keeps the demo free of mail accounts and keeps names and emails inside Convex. Adding email is one node (see For production).
+- **Convex sends events from the same transaction that changes the loan.** If the change commits, the event is queued; if it fails, nothing is sent.
+- **n8n answers only after the notice is saved.** If delivery fails, Convex sees the failure and retries the whole path.
+- **Overdue and available are worked out from the dates, never stored,** so they can't drift out of date.
+- **Out of scope:** borrower cancel, pickup details between neighbors, image uploads.
+
 ## Security and data minimization
 
 - Every public Convex function checks the caller first (`convex/lib/auth.ts`). Hidden buttons in the UI are only a convenience.
@@ -21,9 +29,13 @@ Convex owns the data and every access check. n8n only formats and delivers messa
 - Both directions are signed with HMAC-SHA256 over the raw body. Requests older than 5 minutes are refused.
 - The shared secret lives in a Convex env var and an n8n credential. The workflow JSON in `n8n/` has none.
 - n8n gets ids, a tool name and dates. Never a name or an email.
-- Signed-out visitors see free tool names only, no owners. A user's email is never shown to other users.
+- n8n can only notify someone who is the owner or borrower on that loan, even with the secret.
+- Signed-out visitors see tool names and categories only: no owners, no ids. A user's email is never shown to other users.
+- A borrower can have one pending request per tool, so nobody can spam an owner.
 - Every notice has an `eventId`, so retries and reruns never send it twice.
-- If n8n is down, Convex retries 3 times and then alerts admins. n8n failures alert admins too.
+- If n8n is down, Convex retries 3 times and then alerts admins. If n8n refuses a request (for example a wrong secret), Convex alerts at once instead of retrying.
+- Forged requests get a 401 and nothing else runs, so they can't flood the admin inbox.
+- n8n listens on 127.0.0.1 only.
 
 ## Environment variables
 
@@ -124,9 +136,9 @@ npm run dev
 docker compose up -d n8n
 ```
 
-### Try the error workflow
+### Forged requests
 
-Send a forged event. n8n answers 401 and the admin gets an alert in the Inbox and on the Admin page:
+A request without a valid signature gets a 401 and stops there:
 
 ```bash
 curl -i -X POST http://localhost:5678/webhook/lendloop-events -H 'Content-Type: application/json' -H 'X-LendLoop-Signature: 00' --data '{"ts":1}'
@@ -134,11 +146,15 @@ curl -i -X POST http://localhost:5678/webhook/lendloop-events -H 'Content-Type: 
 
 ### Using Convex cloud instead
 
-Run `npx convex dev` and pick a cloud project. Cloud Convex can't reach your laptop, so start the tunnel too (`docker compose up -d tunnel`), read its URL with `docker compose logs tunnel | grep trycloudflare`, and use it for `N8N_PUBLIC_URL` and `N8N_WEBHOOK_URL`. In n8n, point the three HTTP Request nodes at `https://<deployment>.convex.site`.
+Run `npx convex dev` and pick a cloud project. Cloud Convex can't reach your laptop, so start the tunnel too (`docker compose up -d tunnel`), read its URL with `docker compose logs tunnel | grep trycloudflare`, and use it for `N8N_PUBLIC_URL` and `N8N_WEBHOOK_URL`. Before importing the workflows, point their four HTTP Request nodes at your deployment:
+
+```bash
+sed -i '' 's#http://host.docker.internal:3211#https://<deployment>.convex.site#g' n8n/*.json
+```
 
 ## Tests
 
-- `npm test`: 41 tests for access checks, loan rules, dates, signing, retries, idempotent notices and list filters.
+- `npm test`: access checks, loan rules, dates, signing, retries, idempotent notices and list filters.
 - `scripts/smoke.sh`: checks the signed routes against a running deployment.
 - `docs/test-cases.md`: manual cases with two users.
 
