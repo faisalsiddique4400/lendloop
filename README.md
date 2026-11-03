@@ -27,43 +27,114 @@ Convex owns the data and every access check. n8n only formats and delivers messa
 
 ## Environment variables
 
-| File or place | Name | Value |
+| Where | Name | Value |
 |---|---|---|
 | `.env.local` | `NEXT_PUBLIC_CONVEX_URL` | written by `npx convex dev` |
-| `.env.local` | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | from Clerk |
+| `.env.local` | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | Clerk, API keys page |
 | Convex env | `CLERK_FRONTEND_API_URL` | Clerk Frontend API URL |
-| Convex env | `LENDLOOP_HMAC_SECRET` | shared signing secret |
+| Convex env | `LENDLOOP_HMAC_SECRET` | the shared signing secret |
 | Convex env | `N8N_WEBHOOK_URL` | `http://localhost:5678/webhook/lendloop-events` |
-| `.env` | `TZ`, `N8N_ENCRYPTION_KEY`, `N8N_PUBLIC_URL` | for docker compose |
+| `.env` | `N8N_TZ`, `N8N_ENCRYPTION_KEY`, `N8N_PUBLIC_URL`, `LENDLOOP_HMAC_SECRET` | read by docker compose and the setup commands below |
 
-`.env.example` lists them all. Set Convex env vars with `npx convex env set NAME value`.
+`.env.example` shows every name. Convex env vars are set with `npx convex env set NAME value`.
 
 ## Run it locally
 
-1. `npm install`, then `npx convex dev` (keep it running).
-2. In Clerk: create an app and activate the Convex integration. Under Sessions, Customize session token, add `{"name": "{{user.full_name}}", "email": "{{user.primary_email_address}}"}`. Put the keys in `.env.local` and set `CLERK_FRONTEND_API_URL` on Convex.
-3. `npm run dev`, open http://localhost:3000 and sign in. Make yourself admin: `npx convex run users:makeAdmin '{"email":"you@example.com"}'`
+Everything runs on your machine: Convex runs locally, n8n runs in Docker, and they reach each other directly. You need Node 20+, Docker Desktop and a free Clerk account. No Convex account and no tunnel.
 
-### n8n
+### 1. App and Convex
 
-1. `cp .env.example .env`, set `N8N_ENCRYPTION_KEY` (`openssl rand -hex 32`) and `N8N_PUBLIC_URL=http://localhost:5678`.
-2. `docker compose up -d n8n`, open http://localhost:5678 and create the owner account.
-3. Pick a secret (`openssl rand -hex 32`). Set it on Convex as `LENDLOOP_HMAC_SECRET`, set `N8N_WEBHOOK_URL`, and add an n8n Crypto credential named `LendLoop HMAC` with the same secret.
-4. Import and publish the workflows:
+```bash
+npm install
+npx convex dev
+```
+
+When `convex dev` asks how to start, choose to run Convex **locally without an account**. Leave it running. It writes `NEXT_PUBLIC_CONVEX_URL` to `.env.local` and serves the app's HTTP routes on port 3211.
+
+### 2. Clerk
+
+1. Create an application with email sign-in.
+2. Configure, Integrations, **Convex**: click Activate. Copy the **Frontend API URL**.
+3. Configure, Sessions, **Customize session token**: make the claims
+   ```json
+   { "aud": "convex", "name": "{{user.full_name}}", "email": "{{user.primary_email_address}}" }
+   ```
+   Without `name` and `email` the app can't show names or find you to make you admin.
+4. Configure, API keys: copy both keys into `.env.local`.
+5. Tell Convex where Clerk is:
+   ```bash
+   npx convex env set CLERK_FRONTEND_API_URL https://<your-app>.clerk.accounts.dev
+   ```
+
+### 3. First sign-in
+
+```bash
+npm run dev
+```
+
+Open http://localhost:3000, sign in, then click **Open LendLoop**. Your account is saved on that first visit. Make yourself admin:
+
+```bash
+npx convex run users:makeAdmin '{"email":"you@example.com"}'
+```
+
+### 4. n8n
+
+1. Create `.env` from the example and fill it in:
+   ```bash
+   cp .env.example .env
+   ```
+   Set `N8N_ENCRYPTION_KEY` and `LENDLOOP_HMAC_SECRET` to two different values from `openssl rand -hex 32`. Keep `N8N_PUBLIC_URL=http://localhost:5678`.
+2. Start n8n, then open http://localhost:5678 and create the owner account:
+   ```bash
+   docker compose up -d n8n
+   ```
+3. Give the secret to Convex and point Convex at n8n:
+   ```bash
+   source .env
+   npx convex env set LENDLOOP_HMAC_SECRET "$LENDLOOP_HMAC_SECRET"
+   npx convex env set N8N_WEBHOOK_URL http://localhost:5678/webhook/lendloop-events
+   ```
+4. Give the same secret to n8n. This creates the `LendLoop HMAC` credential with the id the workflows expect:
+   ```bash
+   printf '[{"id":"lendloopHmac0001","name":"LendLoop HMAC","type":"crypto","data":{"hmacSecret":"%s"}}]' "$LENDLOOP_HMAC_SECRET" \
+     | docker compose exec -T n8n sh -c 'cat > /tmp/cred.json && n8n import:credentials --input=/tmp/cred.json; rm -f /tmp/cred.json'
+   ```
+5. Import and publish the three workflows, then restart n8n so it picks them up:
    ```bash
    docker compose cp n8n/. n8n:/tmp/wf
    docker compose exec n8n n8n import:workflow --separate --input=/tmp/wf
    docker compose exec n8n sh -c 'for id in lendloopErrors01 lendloopEvents01 lendloopOverdue1; do n8n publish:workflow --id=$id; done'
    docker compose restart n8n
    ```
+6. Check the wiring. Every line should start with `ok`:
+   ```bash
+   CONVEX_SITE_URL=http://127.0.0.1:3211 LENDLOOP_HMAC_SECRET="$LENDLOOP_HMAC_SECRET" scripts/smoke.sh
+   ```
 
-n8n reaches local Convex at `http://host.docker.internal:3211`. With Convex cloud, use the `tunnel` service in `docker-compose.yml` and point the HTTP nodes at your `.convex.site` URL.
+The workflows call Convex at `http://host.docker.internal:3211`. The overdue run fires daily at 09:00 in `N8N_TZ`. Don't name it `TZ`: `npx convex dev` also reads `.env`, and a `TZ` there stops the local Convex backend from starting.
 
-To see the error workflow, send a forged event. n8n answers 401 and the admin gets an alert:
+### Next time
+
+Start the three parts again, each in its own terminal:
+
+```bash
+npx convex dev
+npm run dev
+docker compose up -d n8n
+```
+
+### Try the error workflow
+
+Send a forged event. n8n answers 401 and the admin gets an alert in the Inbox and on the Admin page:
 
 ```bash
 curl -i -X POST http://localhost:5678/webhook/lendloop-events -H 'Content-Type: application/json' -H 'X-LendLoop-Signature: 00' --data '{"ts":1}'
 ```
+
+### Using Convex cloud instead
+
+Run `npx convex dev` and pick a cloud project. Cloud Convex can't reach your laptop, so start the tunnel too (`docker compose up -d tunnel`), read its URL with `docker compose logs tunnel | grep trycloudflare`, and use it for `N8N_PUBLIC_URL` and `N8N_WEBHOOK_URL`. In n8n, point the three HTTP Request nodes at `https://<deployment>.convex.site`.
 
 ## Tests
 

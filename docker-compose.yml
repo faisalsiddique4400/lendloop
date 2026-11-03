@@ -4,13 +4,14 @@ services:
     restart: unless-stopped
     ports: ["5678:5678"]
     environment:
-      - GENERIC_TIMEZONE=${TZ}
-      - TZ=${TZ}
+      - GENERIC_TIMEZONE=${N8N_TZ}
+      - TZ=${N8N_TZ}
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
       - N8N_WEBHOOK_URL=${N8N_PUBLIC_URL}
       - N8N_PROXY_HOPS=1
       - NODE_FUNCTION_ALLOW_BUILTIN=crypto
+    extra_hosts: ["host.docker.internal:host-gateway"]
     volumes: ["n8n_data:/home/node/.n8n"]
 
   tunnel:
