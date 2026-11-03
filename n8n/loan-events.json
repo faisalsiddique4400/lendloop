@@ -99,7 +99,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
       "position": [
-        880,
+        1540,
         200
       ],
       "parameters": {
@@ -116,7 +116,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1100,
+        880,
         200
       ],
       "parameters": {
@@ -129,7 +129,7 @@
       "type": "n8n-nodes-base.crypto",
       "typeVersion": 2,
       "position": [
-        1320,
+        1100,
         200
       ],
       "parameters": {
@@ -152,7 +152,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1540,
+        1320,
         200
       ],
       "parameters": {
@@ -195,19 +195,6 @@
           "responseCode": 401
         }
       }
-    },
-    {
-      "id": "49286843-6f04-5484-b933-e6a26ecd7be7",
-      "name": "Fail run",
-      "type": "n8n-nodes-base.stopAndError",
-      "typeVersion": 1,
-      "position": [
-        1100,
-        420
-      ],
-      "parameters": {
-        "errorMessage": "Bad signature on a loan event"
-      }
     }
   ],
   "connections": {
@@ -248,7 +235,7 @@
       "main": [
         [
           {
-            "node": "Accepted",
+            "node": "Write message",
             "type": "main",
             "index": 0
           }
@@ -256,17 +243,6 @@
         [
           {
             "node": "Rejected",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Accepted": {
-      "main": [
-        [
-          {
-            "node": "Write message",
             "type": "main",
             "index": 0
           }
@@ -295,11 +271,11 @@
         ]
       ]
     },
-    "Rejected": {
+    "Deliver": {
       "main": [
         [
           {
-            "node": "Fail run",
+            "node": "Accepted",
             "type": "main",
             "index": 0
           }
@@ -309,8 +285,7 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "errorWorkflow": "lendloopErrors01",
-    "timezone": "Asia/Karachi"
+    "errorWorkflow": "lendloopErrors01"
   },
   "pinData": {}
 }

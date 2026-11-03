@@ -120,8 +120,7 @@
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "timezone": "Asia/Karachi"
+    "executionOrder": "v1"
   },
   "pinData": {}
 }

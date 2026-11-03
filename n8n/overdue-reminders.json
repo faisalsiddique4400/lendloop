@@ -232,8 +232,7 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "errorWorkflow": "lendloopErrors01",
-    "timezone": "Asia/Karachi"
+    "errorWorkflow": "lendloopErrors01"
   },
   "pinData": {}
 }
