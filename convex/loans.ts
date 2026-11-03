@@ -45,6 +45,13 @@ export const request = mutation({
     if (clashes(await approvedLoans(ctx, toolId), { startDate, endDate })) {
       throw new ConvexError("This tool is booked for those dates.");
     }
+    const waiting = await ctx.db
+      .query("loans")
+      .withIndex("by_tool", (q) => q.eq("toolId", toolId).eq("status", "pending"))
+      .collect();
+    if (waiting.some((loan) => loan.borrowerId === user._id)) {
+      throw new ConvexError("You already asked for this tool. Wait for an answer first.");
+    }
     const loanId = await ctx.db.insert("loans", {
       toolId,
       ownerId: tool.ownerId,
@@ -145,7 +152,6 @@ export const recent = query({
     const shown = loans.filter((loan) => loan.status === "approved" || loan.status === "returned").slice(0, 10);
     return await Promise.all(
       shown.map(async (loan) => ({
-        _id: loan._id,
         toolName: (await ctx.db.get(loan.toolId))?.name ?? "A tool",
         returned: loan.status === "returned",
       })),

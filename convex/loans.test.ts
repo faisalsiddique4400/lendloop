@@ -31,6 +31,16 @@ test("request checks the owner and the dates", async () => {
   expect(await scheduledKinds(t)).toEqual(["request_created"]);
 });
 
+test("a borrower can't stack a second pending request for the same tool", async () => {
+  const t = setup();
+  const { sara, toolId } = await seed(t);
+  await sara.as.mutation(api.loans.request, { toolId, startDate: days(1), endDate: days(2) });
+  await expect(sara.as.mutation(api.loans.request, { toolId, startDate: days(5), endDate: days(6) })).rejects.toThrow(
+    "already asked",
+  );
+  expect(await scheduledKinds(t)).toEqual(["request_created"]);
+});
+
 test("only the owner decides, and only once", async () => {
   const t = setup();
   const { ali, sara, toolId } = await seed(t);
@@ -102,5 +112,6 @@ test("all is admin only, and recent shows tool names only", async () => {
   await addLoan(t, toolId, sara.id, { startDate: days(3), endDate: days(4), status: "pending" });
   await expect(ali.as.query(api.loans.all, {})).rejects.toThrow("Admins only");
   expect(await ada.as.query(api.loans.all, {})).toHaveLength(2);
-  expect(await t.query(api.loans.recent, {})).toEqual([{ _id: loanId, toolName: "Cordless drill", returned: false }]);
+  expect(await t.query(api.loans.recent, {})).toEqual([{ toolName: "Cordless drill", returned: false }]);
+  expect(loanId).toBeTruthy();
 });

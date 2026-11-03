@@ -52,6 +52,22 @@ test("send retries three times, then tells admins", async () => {
   ]);
 });
 
+test("send doesn't retry when n8n refuses the request, and says why", async () => {
+  const t = setup();
+  const ada = await signIn(t, "Ada", "admin");
+  const { event } = await seed(t);
+  vi.mocked(fetch).mockResolvedValue(new Response("Bad signature", { status: 401 }));
+  await t.action(internal.n8n.send, event);
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(await ada.as.query(api.notifications.mine, {})).toMatchObject([
+    {
+      kind: "automation_failed",
+      message: "n8n refused the notice for the cordless drill (status 401). Check that both sides use the same signing secret.",
+    },
+  ]);
+});
+
 test("a missing webhook URL alerts admins instead of throwing", async () => {
   const t = setup();
   const ada = await signIn(t, "Ada", "admin");

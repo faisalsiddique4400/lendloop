@@ -32,6 +32,14 @@ export function addLoan(
   });
 }
 
+export async function seedLoan(t: T) {
+  const ali = await signIn(t, "Ali");
+  const sara = await signIn(t, "Sara");
+  const toolId = await addTool(ali);
+  const loanId = await addLoan(t, toolId, sara.id, { startDate: "2026-11-05", endDate: "2026-11-08", status: "pending" });
+  return { ali, sara, loanId };
+}
+
 export async function scheduledKinds(t: T) {
   const jobs = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
   return jobs.map((job) => (job.args[0] as { kind: string }).kind);

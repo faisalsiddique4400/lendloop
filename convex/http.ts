@@ -39,7 +39,7 @@ http.route({
     ctx.runMutation(internal.notifications.record, {
       eventId: p.eventId as string,
       userId: p.recipientId as Id<"users">,
-      loanId: (p.loanId ?? undefined) as Id<"loans"> | undefined,
+      loanId: p.loanId as Id<"loans">,
       kind: p.kind as NoteKind,
       message: p.message as string,
     }),

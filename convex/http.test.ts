@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { api } from "./_generated/api";
 import { addDays, todayIso } from "./lib/dates";
 import { sign } from "./lib/hmac";
-import { addLoan, addTool, setup, signIn, type T } from "./test.setup";
+import { addLoan, addTool, seedLoan, setup, signIn, type T } from "./test.setup";
 
 async function post(t: T, path: string, payload: object, secret = "test-secret") {
   const body = JSON.stringify(payload);
@@ -11,8 +11,8 @@ async function post(t: T, path: string, payload: object, secret = "test-secret")
 
 test("notify writes once and says whether it was new", async () => {
   const t = setup();
-  const ali = await signIn(t, "Ali");
-  const note = { ts: Date.now(), eventId: "e1", recipientId: ali.id, kind: "request_created", message: "Hello" };
+  const { ali, loanId } = await seedLoan(t);
+  const note = { ts: Date.now(), eventId: "e1", recipientId: ali.id, loanId, kind: "request_created", message: "Hello" };
   const first = await post(t, "/n8n/notify", note);
   expect(first.status).toBe(200);
   expect(await first.json()).toEqual({ created: true });
@@ -22,12 +22,13 @@ test("notify writes once and says whether it was new", async () => {
 
 test("bad, stale and malformed requests are refused", async () => {
   const t = setup();
-  const ali = await signIn(t, "Ali");
-  const note = { ts: Date.now(), eventId: "e1", recipientId: ali.id, kind: "request_created", message: "Hi" };
+  const { ali, loanId } = await seedLoan(t);
+  const note = { ts: Date.now(), eventId: "e1", recipientId: ali.id, loanId, kind: "request_created", message: "Hi" };
   expect((await post(t, "/n8n/notify", note, "wrong-secret")).status).toBe(401);
   expect((await post(t, "/n8n/notify", { ...note, ts: Date.now() - 6 * 60_000 })).status).toBe(401);
   expect((await post(t, "/n8n/notify", { ...note, recipientId: "nope" })).status).toBe(400);
   expect((await post(t, "/n8n/notify", { ...note, kind: "made_up" })).status).toBe(400);
+  expect((await post(t, "/n8n/notify", { ...note, loanId: undefined })).status).toBe(400);
   expect(await ali.as.query(api.notifications.mine, {})).toEqual([]);
 });
 

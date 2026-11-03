@@ -22,8 +22,14 @@ async function insertOnce(ctx: MutationCtx, note: ObjectType<typeof noteFields>)
 }
 
 export const record = internalMutation({
-  args: noteFields,
-  handler: async (ctx, note) => ({ created: await insertOnce(ctx, note) }),
+  args: { ...noteFields, loanId: v.id("loans") },
+  handler: async (ctx, note) => {
+    const loan = await ctx.db.get(note.loanId);
+    if (!loan || (note.userId !== loan.ownerId && note.userId !== loan.borrowerId)) {
+      throw new ConvexError("That person is not part of that loan.");
+    }
+    return { created: await insertOnce(ctx, note) };
+  },
 });
 
 export const alertAdmins = internalMutation({

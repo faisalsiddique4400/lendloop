@@ -5,7 +5,7 @@ import { eventFields } from "./lib/events";
 import { sign } from "./lib/hmac";
 
 const BACKOFF_MS = [2_000, 8_000, 30_000];
-const TIMEOUT_MS = 10_000;
+const TIMEOUT_MS = 30_000;
 
 export const send = internalAction({
   args: { ...eventFields, attempt: v.number() },
@@ -30,6 +30,13 @@ export const send = internalAction({
         body,
         signal: abort.signal,
       });
+      if (response.status >= 400 && response.status < 500) {
+        await ctx.runMutation(internal.notifications.alertAdmins, {
+          eventId: `refused:${event.eventId}`,
+          message: `n8n refused the notice for the ${event.toolName.toLowerCase()} (status ${response.status}). Check that both sides use the same signing secret.`,
+        });
+        return;
+      }
       if (!response.ok) throw new Error(`n8n answered ${response.status}`);
     } catch (error) {
       if (attempt < BACKOFF_MS.length) {
