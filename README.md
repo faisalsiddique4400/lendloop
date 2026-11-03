@@ -1,77 +1,54 @@
 # LendLoop
 
-A tool-lending board for one neighborhood. Neighbors list tools, ask to borrow them for set dates, and get notices when something changes. An admin can mark Trusted Lenders and clean up listings.
+Neighbors list tools, ask to borrow them for set dates, and get notices and reminders from n8n. Admins mark Trusted Lenders and remove listings.
 
-Built for the Fluence Full-Stack Developer take-home.
+Next.js 16, Clerk, Convex, n8n in Docker.
 
-## Stack
-
-- Next.js 16 (App Router) and one plain stylesheet
-- Clerk for sign-in, using Clerk's native Convex integration
-- Convex for data, access checks and HTTP routes
-- n8n 2.45 in Docker for notifications and the daily overdue run
-
-## How it fits together
+## Architecture
 
 ```
-browser ──Clerk JWT──> Convex mutation ──schedules──> n8n.send (retries 2s, 8s, 30s)
-                                                          │ signed POST
-                                                          v
-                         Convex /n8n/notify <──signed── n8n "loan events"
-n8n "overdue" (daily 09:00) ──signed──> Convex /n8n/overdue, then /n8n/notify per loan
-n8n "errors" ──signed──> Convex /n8n/alert ──> admins' inbox
+app ── Convex mutation ── n8n.send ──signed──> n8n "loan events" ──signed──> Convex /n8n/notify
+n8n "overdue" (daily 09:00) ──signed──> Convex /n8n/overdue ──> /n8n/notify per late loan
+n8n "errors" ──signed──> Convex /n8n/alert ──> admin inbox
 ```
 
-- Every public Convex function checks the caller first (`convex/lib/auth.ts`). The UI hides buttons for convenience only.
-- Both directions are signed: `X-LendLoop-Signature` is HMAC-SHA256 of the raw body. The body carries `ts`, and anything older than 5 minutes is refused.
-- Inbox writes are idempotent on `eventId`, so n8n retries and reruns never duplicate a notice.
-- No names or emails leave Convex. n8n sees ids, a tool name and dates.
+Convex owns the data and every access check. n8n only formats and delivers messages.
 
 ## Security and data minimization
 
-- **Access lives on the server.** Every public Convex function calls `requireUser`, `requireAdmin` or `requireOwner` before it reads or writes. A test calls every signed-in function with no identity and expects a refusal.
-- **Admin can't be granted from the app.** The only way in is `users:makeAdmin`, an internal function run from the CLI.
-- **Signed both ways.** n8n and Convex share one HMAC secret. The receiver checks the raw bytes before parsing, compares in constant time, and rejects anything older than 5 minutes. A forged event gets a 401 and an admin alert.
-- **The secret stays out of code.** Convex holds it as an env var and n8n holds it as an encrypted Crypto credential. The exported workflow JSON has no secret in it.
-- **Least data to n8n.** Events carry ids, a tool name and dates. n8n writes the message back; it never sees a name or an email.
-- **Least data to neighbors.** Signed-out visitors see free tool names and categories only, with no owners. The activity strip shows tool names only. Display names come from Clerk; if a user has no name, the app uses the part of the email before the @, so an email address is never shown to other users.
-- **Idempotent writes.** Every notice has an `eventId`, so retries, replays and double runs never duplicate a message.
-- **Failures are visible, not silent.** The Convex sender retries 3 times, then alerts admins. n8n's error workflow alerts admins too. Raw error text goes to the logs, not the screen.
+- Every public Convex function checks the caller first (`convex/lib/auth.ts`). Hidden buttons in the UI are only a convenience.
+- Admin is granted from the CLI only (`users:makeAdmin`), never from the app.
+- Both directions are signed with HMAC-SHA256 over the raw body. Requests older than 5 minutes are refused.
+- The shared secret lives in a Convex env var and an n8n credential. The workflow JSON in `n8n/` has none.
+- n8n gets ids, a tool name and dates. Never a name or an email.
+- Signed-out visitors see free tool names only, no owners. A user's email is never shown to other users.
+- Every notice has an `eventId`, so retries and reruns never send it twice.
+- If n8n is down, Convex retries 3 times and then alerts admins. n8n failures alert admins too.
 
 ## Environment variables
 
-| Where | Name | What it is |
+| File or place | Name | Value |
 |---|---|---|
-| `.env.local` (Next.js) | `NEXT_PUBLIC_CONVEX_URL` | Convex URL, written by `npx convex dev` |
-| `.env.local` | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
-| `.env.local` | `CLERK_SECRET_KEY` | Clerk secret key |
-| Convex (`npx convex env set`) | `CLERK_FRONTEND_API_URL` | Clerk Frontend API URL, used by `convex/auth.config.ts` |
-| Convex | `LENDLOOP_HMAC_SECRET` | Shared signing secret |
-| Convex | `N8N_WEBHOOK_URL` | n8n production webhook, `http://localhost:5678/webhook/lendloop-events` locally |
-| `.env` (docker compose) | `TZ` | Time zone for the daily 09:00 run |
-| `.env` | `N8N_ENCRYPTION_KEY` | Encrypts n8n credentials; set it so the volume stays portable |
-| `.env` | `N8N_PUBLIC_URL` | n8n's public base URL, `http://localhost:5678` locally |
+| `.env.local` | `NEXT_PUBLIC_CONVEX_URL` | written by `npx convex dev` |
+| `.env.local` | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | from Clerk |
+| Convex env | `CLERK_FRONTEND_API_URL` | Clerk Frontend API URL |
+| Convex env | `LENDLOOP_HMAC_SECRET` | shared signing secret |
+| Convex env | `N8N_WEBHOOK_URL` | `http://localhost:5678/webhook/lendloop-events` |
+| `.env` | `TZ`, `N8N_ENCRYPTION_KEY`, `N8N_PUBLIC_URL` | for docker compose |
 
-`.env.example` lists them all with empty values. Real `.env` files are git-ignored.
+`.env.example` lists them all. Set Convex env vars with `npx convex env set NAME value`.
 
 ## Run it locally
 
-1. `npm install`
-2. Convex: `npx convex dev` (log in, create a project). Leave it running.
-3. Clerk: create an app, activate the Convex integration, and copy the keys into `.env.local` (see `.env.example`). Then `npx convex env set CLERK_FRONTEND_API_URL <frontend api url>`.
-   In Clerk, go to Sessions, Customize session token, and add `{"name": "{{user.full_name}}", "email": "{{user.primary_email_address}}"}`. The default token has no name or email, so neighbors would show as "Neighbor" and `makeAdmin` could not find you.
-4. `npm run dev` and open http://localhost:3000. Sign in once, then make yourself admin:
-   `npx convex run users:makeAdmin '{"email":"you@example.com"}'`
+1. `npm install`, then `npx convex dev` (keep it running).
+2. In Clerk: create an app and activate the Convex integration. Under Sessions, Customize session token, add `{"name": "{{user.full_name}}", "email": "{{user.primary_email_address}}"}`. Put the keys in `.env.local` and set `CLERK_FRONTEND_API_URL` on Convex.
+3. `npm run dev`, open http://localhost:3000 and sign in. Make yourself admin: `npx convex run users:makeAdmin '{"email":"you@example.com"}'`
 
 ### n8n
 
-Everything runs on your machine. The local Convex backend and n8n in Docker reach each other directly, so no account or tunnel is needed.
-
-1. `cp .env.example .env`, then fill in `TZ`, `N8N_ENCRYPTION_KEY` (`openssl rand -hex 32`) and `N8N_PUBLIC_URL=http://localhost:5678`.
+1. `cp .env.example .env`, set `N8N_ENCRYPTION_KEY` (`openssl rand -hex 32`) and `N8N_PUBLIC_URL=http://localhost:5678`.
 2. `docker compose up -d n8n`, open http://localhost:5678 and create the owner account.
-3. Pick a signing secret (`openssl rand -hex 32`) and give it to both sides:
-   - Convex: `npx convex env set LENDLOOP_HMAC_SECRET <secret>` and `npx convex env set N8N_WEBHOOK_URL http://localhost:5678/webhook/lendloop-events`
-   - n8n: Credentials, Create, "Crypto", named `LendLoop HMAC`, with the secret as the Hmac Secret.
+3. Pick a secret (`openssl rand -hex 32`). Set it on Convex as `LENDLOOP_HMAC_SECRET`, set `N8N_WEBHOOK_URL`, and add an n8n Crypto credential named `LendLoop HMAC` with the same secret.
 4. Import and publish the workflows:
    ```bash
    docker compose cp n8n/. n8n:/tmp/wf
@@ -79,37 +56,26 @@ Everything runs on your machine. The local Convex backend and n8n in Docker reac
    docker compose exec n8n sh -c 'for id in lendloopErrors01 lendloopEvents01 lendloopOverdue1; do n8n publish:workflow --id=$id; done'
    docker compose restart n8n
    ```
-   The workflows call Convex at `http://host.docker.internal:3211`, the local HTTP actions port. "LendLoop errors" is already set as the error workflow on the other two.
 
-With a Convex cloud deployment instead, n8n needs a public URL: run `docker compose up -d tunnel`, read the URL with `docker compose logs tunnel | grep trycloudflare`, use it for `N8N_PUBLIC_URL` and `N8N_WEBHOOK_URL`, and point the HTTP Request nodes at `https://<deployment>.convex.site`. The quick-tunnel URL changes on every restart.
+n8n reaches local Convex at `http://host.docker.internal:3211`. With Convex cloud, use the `tunnel` service in `docker-compose.yml` and point the HTTP nodes at your `.convex.site` URL.
 
-### Demo the error workflow
-
-n8n only runs error workflows for production runs. Send a forged event to the live webhook:
+To see the error workflow, send a forged event. n8n answers 401 and the admin gets an alert:
 
 ```bash
 curl -i -X POST http://localhost:5678/webhook/lendloop-events -H 'Content-Type: application/json' -H 'X-LendLoop-Signature: 00' --data '{"ts":1}'
 ```
 
-n8n answers 401, the run fails on purpose, and the admin sees the alert in the Inbox and on the Admin page.
-
 ## Tests
 
-- `npm test` runs the Convex tests (auth guards, loan rules, date overlap, once-a-day reminders, idempotent notices, HMAC good, bad and stale, retries) and the list filters.
-- `scripts/smoke.sh` checks the signed routes against a real deployment.
-
-### Manual check
-
-1. Sign in as two users in two browser profiles.
-2. User B requests user A's tool. A sees it in Requests and Inbox without a reload.
-3. A approves. B's Inbox shows the approval.
-4. In the Convex dashboard, set that loan's `endDate` to yesterday. Run "LendLoop overdue reminders" in n8n twice. B gets one reminder.
+- `npm test`: 41 tests for access checks, loan rules, dates, signing, retries, idempotent notices and list filters.
+- `scripts/smoke.sh`: checks the signed routes against a running deployment.
+- `docs/test-cases.md`: manual cases with two users.
 
 ## For production
 
-- Use a named Cloudflare tunnel or n8n Cloud instead of a quick tunnel.
-- Use one secret per direction and rotate them.
-- Rate-limit the `/n8n/*` routes.
-- Give production its own Convex deployment and Clerk instance.
-- Add Sentry to the app and alert on `automation_failed` notices.
-- Real email: an HTTP Request node to Resend with the `eventId` as the `Idempotency-Key`.
+- n8n Cloud or a named tunnel instead of a quick tunnel.
+- One secret per direction, rotated.
+- Rate limits on `/n8n/*`.
+- Separate Convex and Clerk production instances.
+- Error tracking (Sentry) and an alert on `automation_failed`.
+- Real email through Resend, with `eventId` as the idempotency key.
