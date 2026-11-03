@@ -144,9 +144,26 @@ Run `npx convex dev` and pick a cloud project. Cloud Convex can't reach your lap
 
 ## For production
 
-- n8n Cloud or a named tunnel instead of a quick tunnel.
-- One secret per direction, rotated.
-- Rate limits on `/n8n/*`.
-- Separate Convex and Clerk production instances.
-- Error tracking (Sentry) and an alert on `automation_failed`.
-- Real email through Resend, with `eventId` as the idempotency key.
+What I would change before real users depend on it.
+
+### Hosting
+
+- Run Convex and Clerk as separate production instances, not the dev ones.
+- Host n8n on n8n Cloud or a server with a fixed domain. A quick tunnel's URL changes on every restart.
+
+### Security
+
+- Use one signing secret per direction (Convex to n8n, n8n to Convex) and rotate them on a schedule.
+- Rate-limit the `/n8n/*` routes so a flood of bad requests can't load the backend.
+- Keep the n8n editor behind a login and a private network. Only the webhook needs to be public.
+
+### Reliability
+
+- Send app and backend errors to an error tracker such as Sentry.
+- Alert the team when an `automation_failed` notice is written, not only the admins in the app.
+- Back up the n8n data volume, which holds the workflows and the encrypted credential.
+
+### Notifications
+
+- Add real email next to the in-app inbox, for example through Resend.
+- Pass the `eventId` as Resend's idempotency key, so a retried event never sends the same email twice.
